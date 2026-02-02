@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 可以在这里加一些全局覆盖，比如让整个应用背景变黑 */
+body {
+    @apply bg-gray-900 text-gray-100;
+    margin: 0;
+    font-family: 'Inter', sans-serif; /* 后面我们会装字体 */
+}
