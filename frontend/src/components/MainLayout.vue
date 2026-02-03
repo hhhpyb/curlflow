@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {computed, onUnmounted, ref} from 'vue'
 import {useMessage, NTabs, NTabPane, NDynamicInput} from 'naive-ui'
 import {CloudDownloadOutline, PlayOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
@@ -9,6 +9,46 @@ import {useRequestStore} from '../stores/request'
 const message = useMessage()
 const store = useRequestStore()
 const activeTab = ref('body')
+
+// Split pane logic
+const requestHeightPercent = ref(50) // Initial height percentage for the top panel
+const isDragging = ref(false)
+const containerRef = ref<HTMLElement | null>(null)
+
+const startDrag = () => {
+  isDragging.value = true
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+  document.body.style.cursor = 'row-resize'
+  document.body.style.userSelect = 'none'
+}
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging.value || !containerRef.value) return
+  
+  const containerRect = containerRef.value.getBoundingClientRect()
+  const relativeY = e.clientY - containerRect.top
+  const percentage = (relativeY / containerRect.height) * 100
+  
+  // Limit the resizing range (e.g., between 10% and 90%)
+  if (percentage >= 10 && percentage <= 90) {
+    requestHeightPercent.value = percentage
+  }
+}
+
+const stopDrag = () => {
+  isDragging.value = false
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+}
+
+onUnmounted(() => {
+  // Cleanup in case component is destroyed while dragging
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+})
 
 const handleRun = async () => {
   if (!store.request.url) {
@@ -55,7 +95,8 @@ const responseHeaders = computed(() => {
 
 <template>
   <div class="h-screen w-screen flex flex-col bg-gray-900 text-gray-200 p-4 gap-4 overflow-hidden">
-    <div class="flex items-center justify-between">
+    <!-- Header -->
+    <div class="flex items-center justify-between shrink-0">
       <div class="flex items-center gap-2">
         <n-icon size="24" color="#4ade80">
           <CloudDownloadOutline/>
@@ -78,19 +119,28 @@ const responseHeaders = computed(() => {
       </n-button>
     </div>
 
-    <div class="flex-1 flex gap-4 min-h-0">
-      <!-- Request Section -->
-      <div class="flex-1 flex flex-col gap-2 min-w-0">
-        <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2">
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
+      <!-- Request Section (Top) -->
+      <div class="flex flex-col gap-2 min-h-0" :style="{ height: `${requestHeightPercent}%` }">
+        <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 shrink-0">
           <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
           Request
         </div>
-        <RequestPanel/>
+        <RequestPanel class="flex-1 min-h-0"/>
       </div>
 
-      <!-- Response Section -->
-      <div class="flex-1 flex flex-col gap-2 min-w-0">
-        <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2">
+      <!-- Resizer Handle -->
+      <div 
+        class="h-2 w-full hover:bg-blue-500/50 cursor-row-resize flex items-center justify-center group transition-colors my-1 shrink-0"
+        @mousedown="startDrag"
+      >
+        <div class="w-10 h-1 rounded-full bg-gray-700 group-hover:bg-blue-400 transition-colors"></div>
+      </div>
+
+      <!-- Response Section (Bottom) -->
+      <div class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden">
+        <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 shrink-0">
           <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
           Response
           <span v-if="store.response.statusCode" class="ml-auto normal-case text-gray-400">
@@ -100,7 +150,7 @@ const responseHeaders = computed(() => {
           </span>
         </div>
         
-        <div class="flex-1 flex flex-col bg-gray-800/50 rounded-lg border border-gray-700/50 p-1">
+        <div class="flex-1 flex flex-col bg-gray-800/50 rounded-lg border border-gray-700/50 p-1 min-h-0">
           <n-tabs v-model:value="activeTab" type="line" animated class="h-full flex flex-col">
             <n-tab-pane name="body" tab="Body" class="flex-1 h-0">
               <div class="h-full pt-2">

@@ -9,11 +9,14 @@ import {
   NInputGroup, 
   NSelect, 
   NDynamicInput,
-  NIcon
+  NIcon,
+  NButton,
+  useMessage
 } from 'naive-ui'
-import { DocumentTextOutline, ListOutline, CodeSlashOutline } from '@vicons/ionicons5'
+import { DocumentTextOutline, ListOutline, CodeSlashOutline, OptionsOutline } from '@vicons/ionicons5'
 
 const store = useRequestStore()
+const message = useMessage()
 
 const methodOptions = [
   { label: 'GET', value: 'GET' },
@@ -67,6 +70,18 @@ watch(() => store.request.body, (newBody) => {
 const handleBodyChange = (val: string) => {
   store.request.body = val
   store.syncToCurl()
+}
+
+const formatBody = () => {
+  if (!store.request.body) return
+  try {
+    const jsonObj = JSON.parse(store.request.body)
+    store.request.body = JSON.stringify(jsonObj, null, 2)
+    store.syncToCurl()
+    message.success('JSON formatted')
+  } catch (e) {
+    message.warning('Invalid JSON content')
+  }
 }
 
 // ================= Base Info =================
@@ -158,13 +173,23 @@ const handleCurlChange = (val: string) => {
               Body
             </div>
           </template>
-          <div class="h-full pt-2">
-            <CodeEditor
-              :model-value="requestBody"
-              language="json"
-              height="100%"
-              @update:model-value="handleBodyChange"
-            />
+          <div class="flex flex-col h-full pt-2 gap-2">
+            <div class="flex justify-end px-1">
+              <n-button size="tiny" secondary type="info" @click="formatBody">
+                <template #icon>
+                  <n-icon><OptionsOutline /></n-icon>
+                </template>
+                Format JSON
+              </n-button>
+            </div>
+            <div class="flex-1 min-h-0">
+              <CodeEditor
+                :model-value="requestBody"
+                language="json"
+                height="100%"
+                @update:model-value="handleBodyChange"
+              />
+            </div>
           </div>
         </n-tab-pane>
       </n-tabs>
