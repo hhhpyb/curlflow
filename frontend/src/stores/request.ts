@@ -82,6 +82,7 @@ export const useRequestStore = defineStore('request', {
                 const dir = await SelectWorkDir();
                 if (dir) {
                     this.workDir = dir;
+                    localStorage.setItem('curlflow_workDir', dir);
                     this.currentFileName = ''; // Reset current file when changing dir
                     await this.fetchFiles();
                     
@@ -95,11 +96,24 @@ export const useRequestStore = defineStore('request', {
             }
         },
 
+        async init() {
+            const savedDir = localStorage.getItem('curlflow_workDir');
+            if (savedDir) {
+                this.workDir = savedDir;
+                await this.fetchFiles();
+                const envStore = useEnvStore();
+                await envStore.loadEnvs();
+                return true;
+            }
+            return false;
+        },
+
         async fetchFiles() {
             if (!this.workDir) return;
             try {
                 const files = await GetFileList(this.workDir);
-                this.fileList = files || [];
+                // Filter out environment configuration file from the list
+                this.fileList = (files || []).filter(file => file.toLowerCase() !== 'environments.json');
             } catch (e) {
                 console.error('Failed to list files:', e);
                 this.fileList = [];
@@ -148,6 +162,13 @@ export const useRequestStore = defineStore('request', {
                 console.warn('Cannot load file: No working directory selected');
                 return;
             }
+
+            // Defense: Prevent loading environment config as a request
+            if (filename.toLowerCase() === 'environments.json') {
+                console.warn('Security: Attempted to load environments.json as a request file. Operation blocked.');
+                return;
+            }
+
             try {
                 const req = await LoadRequest(this.workDir, filename);
                 // Check if req is valid (basic check)

@@ -13,7 +13,7 @@ interface EnvConfig {
 
 export const useEnvStore = defineStore('env', {
     state: () => ({
-        activeEnvName: 'dev',
+        activeEnvName: '',
         variables: {} as Record<string, string>,
         // Internal storage for all environments
         allEnvs: {
@@ -24,6 +24,13 @@ export const useEnvStore = defineStore('env', {
 
     getters: {
         envList: (state) => Object.keys(state.allEnvs),
+        envOptions: (state) => {
+            const options = Object.keys(state.allEnvs).map(name => ({
+                label: name,
+                value: name
+            }));
+            return [{ label: 'No Environment', value: '' }, ...options];
+        }
     },
 
     actions: {
@@ -40,17 +47,19 @@ export const useEnvStore = defineStore('env', {
                 if (configStr) {
                     const config = JSON.parse(configStr) as EnvConfig;
                     this.allEnvs = config.environments || {};
-                    this.activeEnvName = config.activeEnvName || 'dev';
                     
-                    // Ensure active environment exists in the list
-                    if (!this.allEnvs[this.activeEnvName]) {
-                        // fallback if activeEnvName from file is invalid
+                    // Restore from localStorage if valid
+                    const savedEnv = localStorage.getItem('curlflow_activeEnv');
+                    if (savedEnv !== null && (savedEnv === '' || this.allEnvs[savedEnv])) {
+                        this.activeEnvName = savedEnv;
+                    } else {
+                        this.activeEnvName = config.activeEnvName || '';
+                    }
+                    
+                    // Final safety check: if current activeEnvName is invalid and not empty
+                    if (this.activeEnvName !== '' && !this.allEnvs[this.activeEnvName]) {
                         const keys = Object.keys(this.allEnvs);
-                        if (keys.length > 0) {
-                            this.activeEnvName = keys[0];
-                        } else {
-                            this.initDefaults();
-                        }
+                        this.activeEnvName = keys.length > 0 ? keys[0] : '';
                     }
                 } else {
                     this.initDefaults();
@@ -109,8 +118,9 @@ export const useEnvStore = defineStore('env', {
         },
 
         setActiveEnv(name: string) {
-            if (this.allEnvs[name]) {
+            if (name === '' || this.allEnvs[name]) {
                 this.activeEnvName = name;
+                localStorage.setItem('curlflow_activeEnv', name);
                 this.updateCurrentVariables();
             }
         },

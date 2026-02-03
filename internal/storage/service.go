@@ -41,9 +41,12 @@ func (s *Service) ListRequestFiles(dirPath string) ([]string, error) {
 	}
 
 	for _, entry := range entries {
+		name := entry.Name()
+		lowerName := strings.ToLower(name)
 		// Filter for .json files (case-insensitive) and ignore directories
-		if !entry.IsDir() && strings.HasSuffix(strings.ToLower(entry.Name()), ".json") {
-			files = append(files, entry.Name())
+		// Also skip environment configuration file
+		if !entry.IsDir() && strings.HasSuffix(lowerName, ".json") && lowerName != "environments.json" {
+			files = append(files, name)
 		}
 	}
 	return files, nil

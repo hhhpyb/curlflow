@@ -19,6 +19,7 @@ declare module 'vue' {
     NGlobalStyle: typeof import('naive-ui')['NGlobalStyle']
     NMessageProvider: typeof import('naive-ui')['NMessageProvider']
     RequestPanel: typeof import('./src/components/RequestPanel.vue')['default']
+    ResponsePanel: typeof import('./src/components/ResponsePanel.vue')['default']
     Sidebar: typeof import('./src/components/Sidebar.vue')['default']
   }
 }

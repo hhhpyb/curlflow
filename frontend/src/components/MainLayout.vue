@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace} from 'naive-ui'
+import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect} from 'naive-ui'
 import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import RequestPanel from './RequestPanel.vue'
@@ -17,8 +17,19 @@ const activeTab = ref('body')
 // Environment Manager State
 const showEnvModal = ref(false)
 
-onMounted(() => {
-  envStore.loadEnvs()
+onMounted(async () => {
+  const restored = await store.init()
+  if (restored) {
+    // Environments are already loaded inside store.init(), 
+    // but calling loadEnvs again here is harmless if needed, 
+    // though store.init() handles it.
+    // However, per requirements, we ensure loadEnvs is only called if workDir exists.
+    // Since store.init() calls loadEnvs internally if workDir exists, we might not strictly need it here,
+    // but following the instruction "only if requestStore.workDir is not empty".
+    if (store.workDir) {
+       await envStore.loadEnvs()
+    }
+  }
 })
 
 // Save Modal State
@@ -142,6 +153,11 @@ const responseHeaders = computed(() => {
   }
   return list
 })
+
+const handleEnvChange = (val: string) => {
+  envStore.setActiveEnv(val)
+  envStore.saveEnvs()
+}
 </script>
 
 <template>
@@ -158,6 +174,14 @@ const responseHeaders = computed(() => {
           <span class="font-bold text-lg tracking-wide text-white">CurlFlow</span>
         </div>
         <div class="flex items-center gap-2">
+          <n-select
+              :value="envStore.activeEnvName"
+              :options="envStore.envOptions"
+              size="small"
+              placeholder="Select Env"
+              style="width: 150px"
+              @update:value="handleEnvChange"
+          />
           <n-button
               secondary
               size="small"
