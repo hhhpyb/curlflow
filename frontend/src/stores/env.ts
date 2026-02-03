@@ -141,6 +141,34 @@ export const useEnvStore = defineStore('env', {
                 // If variable exists, replace it. Otherwise keep the original {{key}} string.
                 return val !== undefined ? val : match;
             });
+        },
+
+        // Reverse check: Find values in the string that match current environment variables
+        // Returns the string with values replaced by {{key}}, or null if no changes needed
+        reverseReplace(input: string): string | null {
+            if (!input) return null;
+            
+            let result = input;
+            let changed = false;
+            
+            // Sort variables by value length (descending) to avoid partial replacements
+            // e.g. if we have var1="http://api" and var2="http://api/v2", we should match var2 first
+            const entries = Object.entries(this.variables)
+                .filter(([_, val]) => val && val.length > 2) // Ignore very short values to avoid false positives
+                .sort((a, b) => b[1].length - a[1].length);
+
+            for (const [key, val] of entries) {
+                if (result.includes(val)) {
+                    // Replace all occurrences
+                    // Escape regex special characters in 'val'
+                    const escapedVal = val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(escapedVal, 'g');
+                    result = result.replace(regex, `{{${key}}}`);
+                    changed = true;
+                }
+            }
+            
+            return changed ? result : null;
         }
     }
 });

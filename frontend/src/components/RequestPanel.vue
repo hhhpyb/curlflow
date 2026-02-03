@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { useRequestStore } from '../stores/request'
+import { useEnvStore } from '../stores/env'
 import CodeEditor from './CodeEditor.vue'
 import { 
   NTabs, 
@@ -11,12 +12,38 @@ import {
   NDynamicInput,
   NIcon,
   NButton,
+  NAlert,
   useMessage
 } from 'naive-ui'
-import { DocumentTextOutline, ListOutline, CodeSlashOutline, OptionsOutline } from '@vicons/ionicons5'
+import { DocumentTextOutline, ListOutline, CodeSlashOutline, OptionsOutline, FlashOutline } from '@vicons/ionicons5'
 
 const store = useRequestStore()
+const envStore = useEnvStore()
 const message = useMessage()
+
+// Env Replacement Logic
+const possibleReplacement = ref<string | null>(null)
+
+watch(
+  () => store.curlCode,
+  (newCode) => {
+    // Basic debounce could be added here if needed, but for now direct check
+    if (newCode && newCode.trim().length > 10) {
+       possibleReplacement.value = envStore.reverseReplace(newCode)
+    } else {
+       possibleReplacement.value = null
+    }
+  }
+)
+
+const applyReplacement = () => {
+  if (possibleReplacement.value) {
+    store.curlCode = possibleReplacement.value
+    store.syncFromCurl() // Update parsed request object
+    possibleReplacement.value = null
+    message.success('Applied environment variables')
+  }
+}
 
 const methodOptions = [
   { label: 'GET', value: 'GET' },
@@ -142,7 +169,23 @@ const handleCurlChange = (val: string) => {
               Raw Curl
             </div>
           </template>
-          <div class="h-full pt-2">
+          <div class="h-full pt-2 flex flex-col gap-2">
+            <n-alert 
+              v-if="possibleReplacement && possibleReplacement !== store.curlCode" 
+              type="info" 
+              show-icon 
+              class="mb-1"
+            >
+              <template #icon>
+                <n-icon><FlashOutline /></n-icon>
+              </template>
+              Detected values matching environment variables.
+              <div class="mt-2">
+                <n-button size="tiny" type="primary" @click="applyReplacement">
+                  Auto Replace
+                </n-button>
+              </div>
+            </n-alert>
             <CodeEditor
               :model-value="store.curlCode"
               language="shell"
