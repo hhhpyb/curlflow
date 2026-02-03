@@ -42,6 +42,11 @@ func SendRequest(req parser.HttpRequest) parser.HttpResponse {
 
 	// 2. 填充 Headers
 	for k, v := range req.Headers {
+		// 忽略 Accept-Encoding，让 Go 的 http.Transport 自动处理 gzip
+		// 如果手动设置了，Go 就不会自动解压，导致我们读到乱码 (特别是 br/deflate)
+		if strings.EqualFold(k, "Accept-Encoding") {
+			continue
+		}
 		clientReq.Header.Set(k, v)
 	}
 
