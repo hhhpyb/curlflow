@@ -7,47 +7,53 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
+
+	"curlflow/cmd"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+	cmd.StartApp = func() {
+		// Create an instance of the app structure
+		app := NewApp()
 
-	// Create application with options
-	err := wails.Run(&options.App{
-		Title:         "curlflow",
-		Width:         1024,
-		Height:        768,
-		MinWidth:      800,
-		MinHeight:     600,
-		DisableResize: false,
-		AssetServer: &assetserver.Options{
-			Assets: assets,
-		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
-		Mac: &mac.Options{
-			TitleBar: &mac.TitleBar{
-				TitlebarAppearsTransparent: false,
-				HideTitle:                  false,
-				HideTitleBar:               false,
-				FullSizeContent:            false,
-				UseToolbar:                 false,
-				HideToolbarSeparator:       true,
+		// Create application with options
+		err := wails.Run(&options.App{
+			Title:         "curlflow",
+			Width:         1024,
+			Height:        768,
+			MinWidth:      800,
+			MinHeight:     600,
+			DisableResize: false,
+			AssetServer: &assetserver.Options{
+				Assets: assets,
 			},
-			Appearance:           mac.NSAppearanceNameDarkAqua,
-			WebviewIsTransparent: true,
-			WindowIsTranslucent:  true,
-		},
-		Bind: []interface{}{
-			app,
-		},
-	})
+			BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+			OnStartup:        app.startup,
+			Mac: &mac.Options{
+				TitleBar: &mac.TitleBar{
+					TitlebarAppearsTransparent: false,
+					HideTitle:                  false,
+					HideTitleBar:               false,
+					FullSizeContent:            false,
+					UseToolbar:                 false,
+					HideToolbarSeparator:       true,
+				},
+				Appearance:           mac.NSAppearanceNameDarkAqua,
+				WebviewIsTransparent: true,
+				WindowIsTranslucent:  true,
+			},
+			Bind: []interface{}{
+				app,
+			},
+		})
 
-	if err != nil {
-		println("Error:", err.Error())
+		if err != nil {
+			println("Error:", err.Error())
+		}
 	}
+
+	cmd.Execute()
 }
