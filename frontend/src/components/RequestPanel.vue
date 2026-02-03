@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { useRequestStore } from '../stores/request'
 import CodeEditor from './CodeEditor.vue'
 import { 
@@ -30,11 +30,13 @@ const methodOptions = [
 
 // ================= Headers Logic =================
 const headersList = ref<{ key: string; value: string }[]>([])
+const ignoreHeaderUpdate = ref(false)
 
 // Sync Store -> Local UI (When ParseCurl or manual edits happen)
 watch(
   () => store.request.headers,
   (newHeaders) => {
+    if (ignoreHeaderUpdate.value) return
     const list: { key: string; value: string }[] = []
     if (newHeaders) {
       Object.entries(newHeaders).forEach(([key, value]) => {
@@ -51,6 +53,7 @@ watch(
 
 // Sync Local UI -> Store (When User edits headers)
 const handleHeadersChange = (val: any) => {
+  ignoreHeaderUpdate.value = true
   const map: Record<string, string> = {}
   if (Array.isArray(val)) {
     val.forEach((item: any) => {
@@ -59,6 +62,9 @@ const handleHeadersChange = (val: any) => {
   }
   store.request.headers = map
   store.syncToCurl()
+  nextTick(() => {
+    ignoreHeaderUpdate.value = false
+  })
 }
 
 // ================= Body Logic =================
