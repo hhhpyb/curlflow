@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"path/filepath"
-
 	"curlflow/internal/domain"
 	"curlflow/internal/parser"
 	"curlflow/internal/runner"
 	"curlflow/internal/storage"
+	"fmt"
+	"path/filepath"
 )
 
 // App struct
@@ -31,65 +31,62 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// ================== Parser Logic (Stateless) ==================
-
-// ParseCurl parses a curl command string into a HttpRequest object.
-func (a *App) ParseCurl(curlCommand string) (domain.HttpRequest, error) {
-	reqPtr, err := parser.ParseCurl(curlCommand)
+// ParseCurl parses a curl command string into a HttpRequest struct
+func (a *App) ParseCurl(curl string) domain.HttpRequest {
+	req, err := parser.ParseCurl(curl)
 	if err != nil {
-		return domain.HttpRequest{}, err
+		fmt.Printf("ParseCurl error: %v\n", err)
+		return domain.HttpRequest{}
 	}
-	// Dereference the pointer to return the struct value
-	return *reqPtr, nil
+	return *req
 }
 
-// BuildCurl builds a curl command string from a HttpRequest object.
+// BuildCurl reconstructs a curl command string from a HttpRequest struct
 func (a *App) BuildCurl(req domain.HttpRequest) string {
 	return parser.BuildCurl(req)
 }
 
-// ================== Runner Logic ==================
-
-// SendRequest executes the HTTP request.
+// SendRequest executes the HTTP request
 func (a *App) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 	return a.runner.SendRequest(req)
 }
 
-// ================== Storage Logic ==================
-
-// SelectWorkDir opens a dialog to select the working directory.
+// SelectWorkDir opens a directory selection dialog
 func (a *App) SelectWorkDir() string {
 	dir, err := a.storage.SelectWorkingDirectory(a.ctx)
 	if err != nil {
+		fmt.Printf("SelectWorkDir error: %v\n", err)
 		return ""
 	}
 	return dir
 }
 
-// GetFileList lists all request files in the given directory.
-func (a *App) GetFileList(dir string) []string {
+// GetFileList lists all request files in the specified directory
+func (a *App) GetFileList(dir string) ([]string, error) {
 	files, err := a.storage.ListRequestFiles(dir)
 	if err != nil {
-		return []string{}
+		return nil, err
 	}
-	return files
+	return files, nil
 }
 
-// SaveRequest saves the request object to a file.
-func (a *App) SaveRequest(dir string, name string, req domain.HttpRequest) string {
-	path, err := a.storage.SaveRequest(dir, name, req)
+// SaveRequest saves the request to a file
+func (a *App) SaveRequest(dir string, filename string, req domain.HttpRequest) (string, error) {
+	path, err := a.storage.SaveRequest(dir, filename, req)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return path
+	return path, nil
 }
 
-// LoadRequest loads a request object from a file.
-func (a *App) LoadRequest(dir string, name string) domain.HttpRequest {
-	fullPath := filepath.Join(dir, name)
+// LoadRequest loads a request from a file
+func (a *App) LoadRequest(dir string, filename string) (domain.HttpRequest, error) {
+	// Construct full path since storage expects it
+	fullPath := filepath.Join(dir, filename)
+
 	req, err := a.storage.LoadRequest(fullPath)
 	if err != nil {
-		return domain.HttpRequest{}
+		return domain.HttpRequest{}, err
 	}
-	return req
+	return req, nil
 }

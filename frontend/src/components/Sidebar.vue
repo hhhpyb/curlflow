@@ -3,7 +3,6 @@ import { computed } from 'vue';
 import { useRequestStore } from '../stores/request';
 import { NButton, NIcon, NScrollbar, NEmpty } from 'naive-ui';
 import { FolderOpenOutline, DocumentTextOutline, AddOutline } from '@vicons/ionicons5';
-import { domain } from '../../wailsjs/go/models';
 
 const store = useRequestStore();
 
@@ -15,10 +14,7 @@ const folderName = computed(() => {
 });
 
 const handleNewRequest = () => {
-  store.request = new domain.HttpRequest();
-  store.request.method = 'GET';
-  store.currentFileName = '';
-  store.syncToCurl();
+  store.createNewRequest();
 };
 </script>
 

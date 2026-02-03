@@ -55,6 +55,16 @@ export const useRequestStore = defineStore('request', {
 
         // ================= File Actions =================
 
+        createNewRequest() {
+            this.request = new domain.HttpRequest();
+            this.request.method = 'GET';
+            this.curlCode = '';
+            this.currentFileName = '';
+            // Sync empty request to curl to have a fresh start
+            this.syncToCurl(); 
+            this.response = new domain.HttpResponse();
+        },
+
         async chooseDir() {
             try {
                 const dir = await SelectWorkDir();
@@ -79,28 +89,51 @@ export const useRequestStore = defineStore('request', {
             }
         },
 
-        async saveTo(filename: string) {
+        async saveCurrent(filename?: string) {
             if (!this.workDir) {
-                console.warn('No working directory selected');
-                return;
+                throw new Error('No working directory selected. Please open a folder first.');
             }
+
+            let targetName = '';
+
+            // Scenario A: Save As (User provided a filename)
+            if (filename && filename.trim() !== '') {
+                targetName = filename;
+            } 
+            // Scenario B: Overwrite (Use existing filename)
+            else if (this.currentFileName) {
+                targetName = this.currentFileName;
+            } 
+            // Scenario C: Error (No filename available)
+            else {
+                throw new Error('Filename is required for a new request.');
+            }
+
             try {
-                const savedPath = await SaveRequest(this.workDir, filename, this.request);
+                const savedPath = await SaveRequest(this.workDir, targetName, this.request);
                 if (savedPath) {
-                    // Update current filename only if save successful
-                    const actualName = filename.toLowerCase().endsWith('.json') ? filename : filename + '.json';
+                    // Normalize filename (ensure .json extension is handled if backend didn't return full name, though backend path usually does)
+                    // We trust the logic that if we provided "foo", and it saved "foo.json", we want to track "foo.json"
+                    const actualName = targetName.toLowerCase().endsWith('.json') ? targetName : targetName + '.json';
+                    
                     this.currentFileName = actualName;
                     await this.fetchFiles();
                 }
+                return savedPath;
             } catch (e) {
                 console.error('Failed to save file:', e);
+                throw e; // Re-throw to let UI handle the error display
             }
         },
 
         async loadFrom(filename: string) {
-            if (!this.workDir) return;
+            if (!this.workDir) {
+                console.warn('Cannot load file: No working directory selected');
+                return;
+            }
             try {
                 const req = await LoadRequest(this.workDir, filename);
+                // Check if req is valid (basic check)
                 if (req) {
                     this.request = req;
                     this.currentFileName = filename;
@@ -110,7 +143,7 @@ export const useRequestStore = defineStore('request', {
                     this.response = new domain.HttpResponse();
                 }
             } catch (e) {
-                console.error('Failed to load file:', e);
+                console.error(`Failed to load file ${filename}:`, e);
             }
         }
     },

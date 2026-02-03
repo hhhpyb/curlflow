@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import {computed, onUnmounted, ref} from 'vue'
-import {useMessage, NTabs, NTabPane, NDynamicInput} from 'naive-ui'
-import {CloudDownloadOutline, PlayOutline} from '@vicons/ionicons5'
+import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace} from 'naive-ui'
+import {CloudDownloadOutline, PlayOutline, SaveOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import RequestPanel from './RequestPanel.vue'
 import Sidebar from './Sidebar.vue'
@@ -10,6 +10,10 @@ import {useRequestStore} from '../stores/request'
 const message = useMessage()
 const store = useRequestStore()
 const activeTab = ref('body')
+
+// Save Modal State
+const showSaveModal = ref(false)
+const newFilename = ref('')
 
 // Split pane logic
 const requestHeightPercent = ref(50) // Initial height percentage for the top panel
@@ -50,6 +54,42 @@ onUnmounted(() => {
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
 })
+
+const handleSave = async () => {
+  if (!store.workDir) {
+    message.warning("请先选择一个工作目录 (Click 'Open' in Sidebar)")
+    return
+  }
+
+  // If already has a filename, save directly
+  if (store.currentFileName) {
+    try {
+      await store.saveCurrent()
+      message.success("保存成功")
+    } catch (e: any) {
+      message.error(e.message || "保存失败")
+    }
+  } else {
+    // Open modal for new file
+    newFilename.value = ''
+    showSaveModal.value = true
+  }
+}
+
+const confirmSave = async () => {
+  if (!newFilename.value.trim()) {
+    message.warning("文件名不能为空")
+    return
+  }
+  
+  try {
+    await store.saveCurrent(newFilename.value)
+    message.success("保存成功")
+    showSaveModal.value = false
+  } catch (e: any) {
+    message.error(e.message || "保存失败")
+  }
+}
 
 const handleRun = async () => {
   if (!store.request.url) {
@@ -107,20 +147,35 @@ const responseHeaders = computed(() => {
           </n-icon>
           <span class="font-bold text-lg tracking-wide text-white">CurlFlow</span>
         </div>
-        <n-button
-            type="primary"
-            size="small"
-            :loading="store.isLoading"
-            @click="handleRun"
-            class="px-6"
-        >
-          <template #icon>
-            <n-icon>
-              <PlayOutline/>
-            </n-icon>
-          </template>
-          Run
-        </n-button>
+        <div class="flex items-center gap-2">
+          <n-button
+              secondary
+              size="small"
+              @click="handleSave"
+              class="px-4 text-gray-300"
+          >
+            <template #icon>
+              <n-icon>
+                <SaveOutline/>
+              </n-icon>
+            </template>
+            Save
+          </n-button>
+          <n-button
+              type="primary"
+              size="small"
+              :loading="store.isLoading"
+              @click="handleRun"
+              class="px-6"
+          >
+            <template #icon>
+              <n-icon>
+                <PlayOutline/>
+              </n-icon>
+            </template>
+            Run
+          </n-button>
+        </div>
       </div>
 
       <!-- Main Content Area -->
@@ -192,6 +247,36 @@ const responseHeaders = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- Save Modal -->
+    <n-modal v-model:show="showSaveModal">
+      <n-card
+        style="width: 400px"
+        title="保存请求"
+        :bordered="false"
+        size="huge"
+        role="dialog"
+        aria-modal="true"
+      >
+        <template #header-extra>
+          <n-icon size="20" class="cursor-pointer" @click="showSaveModal = false">
+            <!-- Close icon could go here -->
+          </n-icon>
+        </template>
+        <n-space vertical>
+          <n-input 
+            v-model:value="newFilename" 
+            placeholder="请输入文件名 (例如: my-request.json)" 
+            @keyup.enter="confirmSave"
+            autofocus
+          />
+          <div class="flex justify-end gap-2 mt-4">
+            <n-button @click="showSaveModal = false">取消</n-button>
+            <n-button type="primary" @click="confirmSave">保存</n-button>
+          </div>
+        </n-space>
+      </n-card>
+    </n-modal>
   </div>
 </template>
 
