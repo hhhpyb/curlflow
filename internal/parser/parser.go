@@ -1,103 +1,161 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
+	"sort"
 	"strings"
+
+	"github.com/mattn/go-shellwords"
 )
 
-// ParseCurl 解析 Curl 字符串
-func ParseCurl(curlCommand string) HttpRequest {
-	// 初始化
-	req := HttpRequest{
+// headerBlacklist contains lower-cased headers that should be ignored.
+var headerBlacklist = map[string]struct{}{
+	"accept-encoding": {},
+	"content-length":  {},
+	"connection":      {},
+	"host":            {},
+}
+
+// ParseCurl parses a curl command string into a HttpRequest struct.
+// It uses shellwords for tokenization and handles browser-specific quirks.
+func ParseCurl(curlCmd string) (*HttpRequest, error) {
+	if strings.TrimSpace(curlCmd) == "" {
+		return nil, errors.New("empty curl command")
+	}
+
+	args, err := shellwords.Parse(curlCmd)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(args) == 0 {
+		return nil, errors.New("no arguments found")
+	}
+
+	// Remove "curl" from the beginning if present
+	if args[0] == "curl" {
+		args = args[1:]
+	}
+
+	req := &HttpRequest{
 		Method:  "GET",
 		Headers: make(map[string]string),
 	}
 
-	// ================= 1. 强力清洗 (预处理) =================
-	// Chrome/Bash 特有的格式处理
-
-	// 1.1 处理换行符：把 "反斜杠+换行" 和 "普通换行" 都替换为空格
-	curlCommand = strings.ReplaceAll(curlCommand, "\\\n", " ")
-	curlCommand = strings.ReplaceAll(curlCommand, "\n", " ")
-
-	// 1.2 处理 Chrome 的 ANSI C Quoting ($'...')
-	curlCommand = strings.ReplaceAll(curlCommand, " $'", " '")
-	// 针对可能出现在开头的 (虽然少见)
-	if strings.HasPrefix(curlCommand, "$'") {
-		curlCommand = "'" + curlCommand[2:]
-	}
-
-	// 1.3 去掉首尾空格
-	curlCommand = strings.TrimSpace(curlCommand)
-
-	// ================= 2. 解析 =================
-	if !strings.HasPrefix(curlCommand, "curl") {
-		req.URL = curlCommand
-		return req
-	}
-
-	args, err := Tokenize(curlCommand)
-	if err != nil {
-		fmt.Println("Curl Parse Error:", err)
-		return req
-	}
+	var hasData bool
+	var explicitMethod bool
 
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 
-		switch arg {
-		case "curl":
-			continue
-		case "-X", "--request":
-			if i+1 < len(args) {
-				req.Method = strings.ToUpper(args[i+1])
-				i++
-			}
-		case "-H", "--header":
-			if i+1 < len(args) {
-				headerStr := args[i+1]
-				parts := strings.SplitN(headerStr, ":", 2)
-				if len(parts) == 2 {
-					key := strings.TrimSpace(parts[0])
-					val := strings.TrimSpace(parts[1])
-					req.Headers[key] = val
+		if strings.HasPrefix(arg, "-") {
+			// Handle Flags
+			switch arg {
+			case "-X", "--request":
+				if i+1 < len(args) {
+					req.Method = args[i+1]
+					explicitMethod = true
+					i++
 				}
-				i++
-			}
-		case "-d", "--data", "--data-raw", "--data-binary", "--data-ascii":
-			if i+1 < len(args) {
-				req.Body = args[i+1]
-				if req.Method == "GET" {
-					req.Method = "POST"
+			case "-H", "--header":
+				if i+1 < len(args) {
+					parseHeader(req.Headers, args[i+1])
+					i++
 				}
-				i++
+			case "-d", "--data", "--data-raw", "--data-binary":
+				if i+1 < len(args) {
+					req.Body += args[i+1]
+					hasData = true
+					i++
+				}
+			case "--compressed":
+				req.Compressed = true
+			case "--url":
+				if i+1 < len(args) {
+					req.URL = args[i+1]
+					i++
+				}
+			default:
+				// Unknown flag, ignore.
+				continue
 			}
-		case "--compressed":
-			continue
-		default:
-			// 简单的 URL 识别逻辑：非 flag 且以 http 开头
-			if strings.HasPrefix(arg, "http") {
+		} else {
+			// Positional argument (URL)
+			if req.URL == "" {
 				req.URL = arg
 			}
 		}
 	}
 
-	return req
+	// Method Inference Logic
+	if !explicitMethod {
+		if hasData {
+			req.Method = "POST"
+		}
+	}
+
+	return req, nil
 }
 
-// BuildCurl 将 HttpRequest 对象转换回 Curl 字符串
+func parseHeader(headers map[string]string, headerStr string) {
+	parts := strings.SplitN(headerStr, ":", 2)
+	if len(parts) != 2 {
+		return
+	}
+
+	key := strings.TrimSpace(parts[0])
+	val := strings.TrimSpace(parts[1])
+
+	// Check blacklist (case-insensitive)
+	if _, ok := headerBlacklist[strings.ToLower(key)]; ok {
+		return
+	}
+
+	headers[key] = val
+}
+
+// BuildCurl reconstructs a curl command string from a HttpRequest struct.
 func BuildCurl(req HttpRequest) string {
-	curl := fmt.Sprintf("curl -X %s '%s'", req.Method, req.URL)
+	var sb strings.Builder
+	sb.WriteString("curl")
 
-	for key, value := range req.Headers {
-		curl += fmt.Sprintf(" -H '%s: %s'", key, value)
+	// Method
+	if req.Method != "" && req.Method != "GET" {
+		sb.WriteString(fmt.Sprintf(" -X %s", req.Method))
 	}
 
+	// URL
+	if req.URL != "" {
+		sb.WriteString(fmt.Sprintf(" '%s'", escapeSingleQuotes(req.URL)))
+	}
+
+	// Headers
+	// Sort headers for deterministic output
+	var keys []string
+	for k := range req.Headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := req.Headers[k]
+		sb.WriteString(fmt.Sprintf(" -H '%s: %s'", escapeSingleQuotes(k), escapeSingleQuotes(v)))
+	}
+
+	// Body
 	if req.Body != "" {
-		// 简单处理 Body 中的单引号转义，确保在 shell 中可用
-		escapedBody := strings.ReplaceAll(req.Body, "'", "'\\''")
-		curl += fmt.Sprintf(" -d '%s'", escapedBody)
+		sb.WriteString(fmt.Sprintf(" --data-raw '%s'", escapeSingleQuotes(req.Body)))
 	}
 
-	return curl
+	// Compressed
+	if req.Compressed {
+		sb.WriteString(" --compressed")
+	}
+
+	return sb.String()
+}
+
+func escapeSingleQuotes(s string) string {
+	return strings.ReplaceAll(s, "'", `''`)
 }

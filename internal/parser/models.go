@@ -1,18 +1,19 @@
 package parser
 
-// HttpRequest 对应前端需要的请求对象
+// HttpRequest represents the parsed components of a curl command or a request to be executed.
 type HttpRequest struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Body    string            `json:"body"`
+	URL        string            `json:"url"`
+	Method     string            `json:"method"`
+	Headers    map[string]string `json:"headers"`
+	Body       string            `json:"body"`
+	Compressed bool              `json:"compressed"`
 }
 
-// HttpResponse 对应前端收到的响应结果
+// HttpResponse represents the result of an executed HTTP request.
 type HttpResponse struct {
-	StatusCode int               `json:"statusCode"` // 状态码 (200, 404)
-	Time       int64             `json:"time"`       // 耗时 (毫秒)
-	Body       string            `json:"body"`       // 响应内容
-	Headers    map[string]string `json:"headers"`    // 响应头
-	Error      string            `json:"error"`      // 错误信息 (如果有)
+	StatusCode int               `json:"statusCode"`
+	Time       int64             `json:"time"`
+	Body       string            `json:"body"`
+	Headers    map[string]string `json:"headers"`
+	Error      string            `json:"error"`
 }

@@ -8,9 +8,10 @@ import {
   NInput, 
   NInputGroup, 
   NSelect, 
-  NDynamicInput, 
-  NFormItem 
+  NDynamicInput,
+  NIcon
 } from 'naive-ui'
+import { DocumentTextOutline, ListOutline, CodeSlashOutline } from '@vicons/ionicons5'
 
 const store = useRequestStore()
 
@@ -25,27 +26,27 @@ const methodOptions = [
 ]
 
 // ================= Headers Logic =================
-// Naive UI Dynamic Input works best with arrays, store has map.
 const headersList = ref<{ key: string; value: string }[]>([])
 
-// 1. Sync Store -> Local UI (When ParseCurl happens)
+// Sync Store -> Local UI (When ParseCurl or manual edits happen)
 watch(
   () => store.request.headers,
   (newHeaders) => {
-    // Avoid re-mapping if we are the ones who triggered the change (optimization)
-    // But for safety and simplicity, we map.
     const list: { key: string; value: string }[] = []
     if (newHeaders) {
-      for (const k in newHeaders) {
-        list.push({ key: k, value: newHeaders[k] })
-      }
+      Object.entries(newHeaders).forEach(([key, value]) => {
+        list.push({ key, value })
+      })
     }
-    headersList.value = list
+    // Only update if different to avoid cursor jumps or infinite loops
+    if (JSON.stringify(list) !== JSON.stringify(headersList.value)) {
+      headersList.value = list
+    }
   },
   { deep: true, immediate: true }
 )
 
-// 2. Sync Local UI -> Store (When User edits headers)
+// Sync Local UI -> Store (When User edits headers)
 const handleHeadersChange = (val: any) => {
   const map: Record<string, string> = {}
   if (Array.isArray(val)) {
@@ -57,30 +58,32 @@ const handleHeadersChange = (val: any) => {
   store.syncToCurl()
 }
 
-// ================= Event Handlers =================
+// ================= Body Logic =================
+const requestBody = ref(store.request.body)
+watch(() => store.request.body, (newBody) => {
+  requestBody.value = newBody
+})
 
-// When Method or URL changes
-const handleRequestBaseChange = () => {
-  store.syncToCurl()
-}
-
-// When Curl Code changes
-const handleCurlChange = (val: string) => {
-  store.curlCode = val
-  store.syncFromCurl()
-}
-
-// When Body changes
 const handleBodyChange = (val: string) => {
   store.request.body = val
   store.syncToCurl()
 }
+
+// ================= Base Info =================
+const handleRequestBaseChange = () => {
+  store.syncToCurl()
+}
+
+const handleCurlChange = (val: string) => {
+  store.curlCode = val
+  store.syncFromCurl()
+}
 </script>
 
 <style scoped>
-/* 强制 n-tabs 的内容区域撑满高度 */
 :deep(.n-tabs-pane-wrapper) {
-  height: 100%;
+  flex: 1;
+  height: 0;
 }
 :deep(.n-tab-pane) {
   height: 100%;
@@ -90,58 +93,81 @@ const handleBodyChange = (val: string) => {
 <template>
   <div class="flex flex-col h-full gap-4">
     <!-- Top Bar: Method & URL -->
-    <n-input-group>
-      <n-select
-        v-model:value="store.request.method"
-        :options="methodOptions"
-        :style="{ width: '120px' }"
-        @update:value="handleRequestBaseChange"
-      />
-      <n-input
-        v-model:value="store.request.url"
-        placeholder="https://api.example.com/v1/resource"
-        @update:value="handleRequestBaseChange"
-      />
-    </n-input-group>
+    <div class="bg-gray-800/30 p-2 rounded-lg border border-gray-700/50">
+      <n-input-group>
+        <n-select
+          v-model:value="store.request.method"
+          :options="methodOptions"
+          :style="{ width: '120px' }"
+          @update:value="handleRequestBaseChange"
+        />
+        <n-input
+          v-model:value="store.request.url"
+          placeholder="https://api.example.com/v1/resource"
+          @update:value="handleRequestBaseChange"
+          class="flex-1"
+        />
+      </n-input-group>
+    </div>
 
     <!-- Tabs Area -->
-    <n-tabs type="line" animated class="flex-1 h-0">
-      <!-- Tab 1: Raw Curl -->
-      <n-tab-pane name="curl" tab="Raw Curl" display-directive="show">
-        <div class="h-full pt-2">
-          <CodeEditor
-            :model-value="store.curlCode"
-            language="shell"
-            height="100%"
-            @update:model-value="handleCurlChange"
-          />
-        </div>
-      </n-tab-pane>
+    <div class="flex-1 flex flex-col bg-gray-800/50 rounded-lg border border-gray-700/50 p-1 min-h-0">
+      <n-tabs type="line" animated class="h-full flex flex-col">
+        <!-- Tab 1: Raw Curl -->
+        <n-tab-pane name="curl" display-directive="show">
+          <template #tab>
+            <div class="flex items-center gap-1.5">
+              <n-icon><CodeSlashOutline /></n-icon>
+              Raw Curl
+            </div>
+          </template>
+          <div class="h-full pt-2">
+            <CodeEditor
+              :model-value="store.curlCode"
+              language="shell"
+              height="100%"
+              @update:model-value="handleCurlChange"
+            />
+          </div>
+        </n-tab-pane>
 
-      <!-- Tab 2: Headers -->
-      <n-tab-pane name="headers" tab="Headers" display-directive="show">
-        <div class="h-full pt-2 overflow-auto">
-          <n-dynamic-input
-            v-model:value="headersList"
-            preset="pair"
-            key-placeholder="Header Name"
-            value-placeholder="Header Value"
-            @update:value="handleHeadersChange"
-          />
-        </div>
-      </n-tab-pane>
+        <!-- Tab 2: Headers -->
+        <n-tab-pane name="headers" display-directive="show">
+          <template #tab>
+            <div class="flex items-center gap-1.5">
+              <n-icon><ListOutline /></n-icon>
+              Headers
+            </div>
+          </template>
+          <div class="h-full pt-2 overflow-auto px-2">
+            <n-dynamic-input
+              v-model:value="headersList"
+              preset="pair"
+              key-placeholder="Header Name"
+              value-placeholder="Header Value"
+              @update:value="handleHeadersChange"
+            />
+          </div>
+        </n-tab-pane>
 
-      <!-- Tab 3: Body -->
-      <n-tab-pane name="body" tab="Body" display-directive="show">
-        <div class="h-full pt-2">
-          <CodeEditor
-            :model-value="store.request.body"
-            language="json"
-            height="100%"
-            @update:model-value="handleBodyChange"
-          />
-        </div>
-      </n-tab-pane>
-    </n-tabs>
+        <!-- Tab 3: Body -->
+        <n-tab-pane name="body" display-directive="show">
+          <template #tab>
+            <div class="flex items-center gap-1.5">
+              <n-icon><DocumentTextOutline /></n-icon>
+              Body
+            </div>
+          </template>
+          <div class="h-full pt-2">
+            <CodeEditor
+              :model-value="requestBody"
+              language="json"
+              height="100%"
+              @update:model-value="handleBodyChange"
+            />
+          </div>
+        </n-tab-pane>
+      </n-tabs>
+    </div>
   </div>
 </template>

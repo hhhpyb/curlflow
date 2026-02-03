@@ -48,9 +48,12 @@ type HttpResponse struct {
 
 // ParseCurl 解析 Curl 字符串
 // 这个方法会被导出给前端调用
-func (a *App) ParseCurl(curlCommand string) HttpRequest {
+func (a *App) ParseCurl(curlCommand string) (HttpRequest, error) {
 	// 调用 internal/parser 的逻辑
-	parsed := parser.ParseCurl(curlCommand)
+	parsed, err := parser.ParseCurl(curlCommand)
+	if err != nil {
+		return HttpRequest{}, err
+	}
 
 	// DTO 转换 (internal model -> view model)
 	return HttpRequest{
@@ -58,7 +61,7 @@ func (a *App) ParseCurl(curlCommand string) HttpRequest {
 		URL:     parsed.URL,
 		Headers: parsed.Headers,
 		Body:    parsed.Body,
-	}
+	}, nil
 }
 
 // SendRequest 接收前端的请求对象，发送 HTTP 请求，返回结果

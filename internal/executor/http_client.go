@@ -47,7 +47,9 @@ func SendRequest(req parser.HttpRequest) parser.HttpResponse {
 		if strings.EqualFold(k, "Accept-Encoding") {
 			continue
 		}
-		clientReq.Header.Set(k, v)
+		// Use direct assignment to preserve header case (e.g. "routeName" vs "Routename")
+		// clientReq.Header.Set(k, v) would canonicalize the key.
+		clientReq.Header[k] = []string{v}
 	}
 
 	// 3. 发送请求
