@@ -20,5 +20,6 @@ declare module 'vue' {
     NInput: typeof import('naive-ui')['NInput']
     NMessageProvider: typeof import('naive-ui')['NMessageProvider']
     RequestPanel: typeof import('./src/components/RequestPanel.vue')['default']
+    Sidebar: typeof import('./src/components/Sidebar.vue')['default']
   }
 }

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"curlflow/internal/domain"
 	"errors"
 	"fmt"
 	"sort"
@@ -19,7 +20,7 @@ var headerBlacklist = map[string]struct{}{
 
 // ParseCurl parses a curl command string into a HttpRequest struct.
 // It uses shellwords for tokenization and handles browser-specific quirks.
-func ParseCurl(curlCmd string) (*HttpRequest, error) {
+func ParseCurl(curlCmd string) (*domain.HttpRequest, error) {
 	if strings.TrimSpace(curlCmd) == "" {
 		return nil, errors.New("empty curl command")
 	}
@@ -42,7 +43,7 @@ func ParseCurl(curlCmd string) (*HttpRequest, error) {
 		args = args[1:]
 	}
 
-	req := &HttpRequest{
+	req := &domain.HttpRequest{
 		Method:  "GET",
 		Headers: make(map[string]string),
 	}
@@ -73,15 +74,13 @@ func ParseCurl(curlCmd string) (*HttpRequest, error) {
 					hasData = true
 					i++
 				}
-			case "--compressed":
-				req.Compressed = true
 			case "--url":
 				if i+1 < len(args) {
 					req.URL = args[i+1]
 					i++
 				}
 			default:
-				// Unknown flag, ignore.
+				// Unknown or unsupported flag (e.g., --compressed), ignore.
 				continue
 			}
 		} else {
@@ -120,7 +119,7 @@ func parseHeader(headers map[string]string, headerStr string) {
 }
 
 // BuildCurl reconstructs a curl command string from a HttpRequest struct.
-func BuildCurl(req HttpRequest) string {
+func BuildCurl(req domain.HttpRequest) string {
 	var sb strings.Builder
 	sb.WriteString("curl")
 
@@ -152,14 +151,9 @@ func BuildCurl(req HttpRequest) string {
 		sb.WriteString(fmt.Sprintf(" --data-raw '%s'", escapeSingleQuotes(req.Body)))
 	}
 
-	// Compressed
-	if req.Compressed {
-		sb.WriteString(" --compressed")
-	}
-
 	return sb.String()
 }
 
 func escapeSingleQuotes(s string) string {
-	return strings.ReplaceAll(s, "'", `''`)
+	return strings.ReplaceAll(s, "'", "''")
 }

@@ -1,10 +1,11 @@
-export namespace main {
+export namespace domain {
 	
 	export class HttpRequest {
-	    method: string;
 	    url: string;
+	    method: string;
 	    headers: Record<string, string>;
 	    body: string;
+	    compressed: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new HttpRequest(source);
@@ -12,10 +13,11 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.method = source["method"];
 	        this.url = source["url"];
+	        this.method = source["method"];
 	        this.headers = source["headers"];
 	        this.body = source["body"];
+	        this.compressed = source["compressed"];
 	    }
 	}
 	export class HttpResponse {

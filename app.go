@@ -2,19 +2,27 @@ package main
 
 import (
 	"context"
+	"path/filepath"
 
-	"curlflow/internal/executor"
+	"curlflow/internal/domain"
 	"curlflow/internal/parser"
+	"curlflow/internal/runner"
+	"curlflow/internal/storage"
 )
 
 // App struct
 type App struct {
-	ctx context.Context
+	ctx     context.Context
+	runner  *runner.Service
+	storage *storage.Service
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{}
+	return &App{
+		runner:  runner.NewService(),
+		storage: storage.NewService(),
+	}
 }
 
 // startup is called when the app starts. The context is saved
@@ -23,78 +31,65 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// ================== 1. 定义数据结构 (DTO) ==================
+// ================== Parser Logic (Stateless) ==================
 
-// HttpRequest 对应前端需要的请求对象
-// 注意：字段首字母必须大写(Public)，否则 JSON 序列化时会忽略，前端拿不到数据！
-// json tag 指定前端看到的字段名
-type HttpRequest struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Body    string            `json:"body"`
-}
-
-// HttpResponse 对应前端收到的响应结果
-type HttpResponse struct {
-	StatusCode int               `json:"statusCode"` // 状态码 (200, 404)
-	Time       int64             `json:"time"`       // 耗时 (毫秒)
-	Body       string            `json:"body"`       // 响应内容
-	Headers    map[string]string `json:"headers"`    // 响应头
-	Error      string            `json:"error"`      // 错误信息 (如果有)
-}
-
-// ================== 2. 核心业务逻辑 (Service) ==================
-
-// ParseCurl 解析 Curl 字符串
-// 这个方法会被导出给前端调用
-func (a *App) ParseCurl(curlCommand string) (HttpRequest, error) {
-	// 调用 internal/parser 的逻辑
-	parsed, err := parser.ParseCurl(curlCommand)
+// ParseCurl parses a curl command string into a HttpRequest object.
+func (a *App) ParseCurl(curlCommand string) (domain.HttpRequest, error) {
+	reqPtr, err := parser.ParseCurl(curlCommand)
 	if err != nil {
-		return HttpRequest{}, err
+		return domain.HttpRequest{}, err
 	}
-
-	// DTO 转换 (internal model -> view model)
-	return HttpRequest{
-		Method:  parsed.Method,
-		URL:     parsed.URL,
-		Headers: parsed.Headers,
-		Body:    parsed.Body,
-	}, nil
+	// Dereference the pointer to return the struct value
+	return *reqPtr, nil
 }
 
-// SendRequest 接收前端的请求对象，发送 HTTP 请求，返回结果
-func (a *App) SendRequest(req HttpRequest) HttpResponse {
-	// DTO 转换 (view model -> internal model)
-	internalReq := parser.HttpRequest{
-		Method:  req.Method,
-		URL:     req.URL,
-		Headers: req.Headers,
-		Body:    req.Body,
-	}
-
-	// 调用 internal/executor
-	resp := executor.SendRequest(internalReq)
-
-	// DTO 转换 (internal model -> view model)
-	return HttpResponse{
-		StatusCode: resp.StatusCode,
-		Time:       resp.Time,
-		Body:       resp.Body,
-		Headers:    resp.Headers,
-		Error:      resp.Error,
-	}
+// BuildCurl builds a curl command string from a HttpRequest object.
+func (a *App) BuildCurl(req domain.HttpRequest) string {
+	return parser.BuildCurl(req)
 }
 
-func (a *App) BuildCurl(req HttpRequest) string {
-	// DTO 转换
-	internalReq := parser.HttpRequest{
-		Method:  req.Method,
-		URL:     req.URL,
-		Headers: req.Headers,
-		Body:    req.Body,
-	}
+// ================== Runner Logic ==================
 
-	return parser.BuildCurl(internalReq)
+// SendRequest executes the HTTP request.
+func (a *App) SendRequest(req domain.HttpRequest) domain.HttpResponse {
+	return a.runner.SendRequest(req)
+}
+
+// ================== Storage Logic ==================
+
+// SelectWorkDir opens a dialog to select the working directory.
+func (a *App) SelectWorkDir() string {
+	dir, err := a.storage.SelectWorkingDirectory(a.ctx)
+	if err != nil {
+		return ""
+	}
+	return dir
+}
+
+// GetFileList lists all request files in the given directory.
+func (a *App) GetFileList(dir string) []string {
+	files, err := a.storage.ListRequestFiles(dir)
+	if err != nil {
+		return []string{}
+	}
+	return files
+}
+
+// SaveRequest saves the request object to a file.
+func (a *App) SaveRequest(dir string, name string, req domain.HttpRequest) string {
+	path, err := a.storage.SaveRequest(dir, name, req)
+	if err != nil {
+		return ""
+	}
+	return path
+}
+
+// LoadRequest loads a request object from a file.
+func (a *App) LoadRequest(dir string, name string) domain.HttpRequest {
+	fullPath := filepath.Join(dir, name)
+	req, err := a.storage.LoadRequest(fullPath)
+	if err != nil {
+		return domain.HttpRequest{}
+	}
+	return req
 }

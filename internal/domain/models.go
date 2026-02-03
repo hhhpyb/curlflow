@@ -1,4 +1,4 @@
-package parser
+package domain
 
 // HttpRequest represents the parsed components of a curl command or a request to be executed.
 type HttpRequest struct {

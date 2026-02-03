@@ -6,8 +6,24 @@ export function BuildCurl(arg1) {
   return window['go']['main']['App']['BuildCurl'](arg1);
 }
 
+export function GetFileList(arg1) {
+  return window['go']['main']['App']['GetFileList'](arg1);
+}
+
+export function LoadRequest(arg1, arg2) {
+  return window['go']['main']['App']['LoadRequest'](arg1, arg2);
+}
+
 export function ParseCurl(arg1) {
   return window['go']['main']['App']['ParseCurl'](arg1);
+}
+
+export function SaveRequest(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveRequest'](arg1, arg2, arg3);
+}
+
+export function SelectWorkDir() {
+  return window['go']['main']['App']['SelectWorkDir']();
 }
 
 export function SendRequest(arg1) {

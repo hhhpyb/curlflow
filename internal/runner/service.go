@@ -1,4 +1,4 @@
-package executor
+package runner
 
 import (
 	"bytes"
@@ -10,14 +10,22 @@ import (
 	"time"
 )
 
-// SendRequest 接收请求对象，发送 HTTP 请求，返回结果
-func SendRequest(req domain.HttpRequest) domain.HttpResponse {
+// Service handles HTTP request execution.
+type Service struct{}
+
+// NewService creates a new instance of the runner Service.
+func NewService() *Service {
+	return &Service{}
+}
+
+// SendRequest executes the HTTP request described by domain.HttpRequest and returns domain.HttpResponse.
+func (s *Service) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 	start := time.Now()
 	response := domain.HttpResponse{
 		Headers: make(map[string]string),
 	}
 
-	// 0. 基本校验
+	// 0. Basic Validation
 	if req.URL == "" {
 		response.Error = "URL cannot be empty"
 		return response
@@ -27,7 +35,7 @@ func SendRequest(req domain.HttpRequest) domain.HttpResponse {
 		return response
 	}
 
-	// 1. 构造 Request 对象
+	// 1. Build Request Object
 	var bodyReader io.Reader
 	if req.Body != "" {
 		bodyReader = bytes.NewBufferString(req.Body)
@@ -39,19 +47,17 @@ func SendRequest(req domain.HttpRequest) domain.HttpResponse {
 		return response
 	}
 
-	// 2. 填充 Headers
+	// 2. Fill Headers
 	for k, v := range req.Headers {
-		// 忽略 Accept-Encoding，让 Go 的 http.Transport 自动处理 gzip
-		// 如果手动设置了，Go 就不会自动解压，导致我们读到乱码 (特别是 br/deflate)
+		// Ignore Accept-Encoding to let Go's http.Transport handle gzip automatically.
 		if strings.EqualFold(k, "Accept-Encoding") {
 			continue
 		}
-		// Use direct assignment to preserve header case (e.g. "routeName" vs "Routename")
-		// clientReq.Header.Set(k, v) would canonicalize the key.
+		// Use direct assignment to preserve header case
 		clientReq.Header[k] = []string{v}
 	}
 
-	// 3. 发送请求
+	// 3. Send Request
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -63,14 +69,14 @@ func SendRequest(req domain.HttpRequest) domain.HttpResponse {
 	}
 	defer resp.Body.Close()
 
-	// 4. 读取响应 Body
+	// 4. Read Response Body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		response.Error = fmt.Sprintf("Read body failed: %v", err)
 		return response
 	}
 
-	// 5. 组装结果
+	// 5. Assemble Result
 	response.StatusCode = resp.StatusCode
 	response.Body = string(bodyBytes)
 	response.Time = time.Since(start).Milliseconds()
