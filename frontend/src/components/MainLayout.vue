@@ -6,13 +6,13 @@ import CodeEditor from './CodeEditor.vue'
 import RequestPanel from './RequestPanel.vue'
 import Sidebar from './Sidebar.vue'
 import EnvManager from './EnvManager.vue'
+import ResponsePanel from './ResponsePanel.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 
 const message = useMessage()
 const store = useRequestStore()
 const envStore = useEnvStore()
-const activeTab = ref('body')
 
 // Environment Manager State
 const showEnvModal = ref(false)
@@ -20,12 +20,6 @@ const showEnvModal = ref(false)
 onMounted(async () => {
   const restored = await store.init()
   if (restored) {
-    // Environments are already loaded inside store.init(), 
-    // but calling loadEnvs again here is harmless if needed, 
-    // though store.init() handles it.
-    // However, per requirements, we ensure loadEnvs is only called if workDir exists.
-    // Since store.init() calls loadEnvs internally if workDir exists, we might not strictly need it here,
-    // but following the instruction "only if requestStore.workDir is not empty".
     if (store.workDir) {
        await envStore.loadEnvs()
     }
@@ -124,35 +118,8 @@ const handleRun = async () => {
     message.error("请求失败")
   } else {
     message.success(`Status: ${store.response.statusCode} | Time: ${store.response.time}ms`)
-    activeTab.value = 'body'
   }
 }
-
-const responseOutput = computed(() => {
-  if (store.response.error) {
-    return `Error: ${store.response.error}`
-  }
-  // Check if response is empty (initial state)
-  if (!store.response.body && !store.response.statusCode) {
-    return '{\n  "status": "ready"\n}'
-  }
-  try {
-    const jsonObj = JSON.parse(store.response.body)
-    return JSON.stringify(jsonObj, null, 2)
-  } catch {
-    return store.response.body
-  }
-})
-
-const responseHeaders = computed(() => {
-  const list: { key: string; value: string }[] = []
-  if (store.response.headers) {
-    for (const [k, v] of Object.entries(store.response.headers)) {
-      list.push({ key: k, value: v })
-    }
-  }
-  return list
-})
 
 const handleEnvChange = (val: string) => {
   envStore.setActiveEnv(val)
@@ -244,52 +211,8 @@ const handleEnvChange = (val: string) => {
         </div>
 
         <!-- Response Section (Bottom) -->
-        <div class="flex-1 flex flex-col gap-2 min-h-0 overflow-hidden">
-          <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 shrink-0">
-            <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-            Response
-            <span v-if="store.response.statusCode" class="ml-auto normal-case text-gray-400">
-              Status: <span :class="store.response.statusCode < 400 ? 'text-green-400' : 'text-red-400'">{{ store.response.statusCode }}</span>
-              <span class="mx-2 text-gray-700">|</span>
-              Time: <span class="text-blue-400">{{ store.response.time }}ms</span>
-            </span>
-          </div>
-          
-          <div class="flex-1 flex flex-col bg-gray-800/50 rounded-lg border border-gray-700/50 p-1 min-h-0">
-            <n-tabs v-model:value="activeTab" type="line" animated class="h-full flex flex-col">
-              <n-tab-pane name="body" tab="Body" class="flex-1 h-0">
-                <div class="h-full pt-2">
-                  <CodeEditor
-                      :model-value="responseOutput"
-                      language="json"
-                      :read-only="true"
-                      height="100%"
-                  />
-                </div>
-              </n-tab-pane>
-              <n-tab-pane name="headers" tab="Headers" class="flex-1 h-0">
-                <div class="h-full pt-2 overflow-auto px-2">
-                  <n-dynamic-input
-                    :value="responseHeaders"
-                    preset="pair"
-                    key-placeholder="Header Name"
-                    value-placeholder="Header Value"
-                    :show-button="false"
-                  >
-                    <template #default="{ value }">
-                      <div class="flex gap-2 w-full mb-2">
-                        <n-input :value="value.key" readonly placeholder="Key" class="flex-1" />
-                        <n-input :value="value.value" readonly placeholder="Value" class="flex-2" />
-                      </div>
-                    </template>
-                  </n-dynamic-input>
-                  <div v-if="responseHeaders.length === 0" class="text-center py-10 text-gray-500 italic">
-                    No headers received
-                  </div>
-                </div>
-              </n-tab-pane>
-            </n-tabs>
-          </div>
+        <div class="flex-1 min-h-0 overflow-hidden mt-1">
+          <ResponsePanel class="h-full rounded-lg border border-gray-700/50" />
         </div>
       </div>
     </div>
