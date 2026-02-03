@@ -9,6 +9,7 @@ import {
     LoadRequest
 } from '../../wailsjs/go/main/App';
 import { domain } from '../../wailsjs/go/models';
+import { useEnvStore } from './env';
 
 export const useRequestStore = defineStore('request', {
     state: () => ({
@@ -42,8 +43,19 @@ export const useRequestStore = defineStore('request', {
         async send() {
             this.isLoading = true;
             this.response = new domain.HttpResponse();
+            const envStore = useEnvStore();
             try {
-                const res = await SendRequest(this.request);
+                // Process variables in curl code before sending
+                const processedCurl = envStore.processString(this.curlCode);
+                console.log('--- Debug: Processed Curl ---');
+                console.log(processedCurl);
+
+                // Re-parse to ensure domain.HttpRequest is up to date with replaced values
+                const finalRequest = await ParseCurl(processedCurl);
+                console.log('--- Debug: Final Request Object ---');
+                console.log(finalRequest);
+                
+                const res = await SendRequest(finalRequest);
                 this.response = res;
             } catch (e) {
                 console.error('Request failed:', e);
@@ -72,6 +84,11 @@ export const useRequestStore = defineStore('request', {
                     this.workDir = dir;
                     this.currentFileName = ''; // Reset current file when changing dir
                     await this.fetchFiles();
+                    
+                    // Reload environments for the new directory
+                    const envStore = useEnvStore();
+                    await envStore.loadEnvs();
+                    console.log('WorkDir selected, environments loaded from:', dir);
                 }
             } catch (e) {
                 console.error('Failed to select directory:', e);

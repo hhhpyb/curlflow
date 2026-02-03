@@ -12,8 +12,10 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     CodeEditor: typeof import('./src/components/CodeEditor.vue')['default']
+    EnvManager: typeof import('./src/components/EnvManager.vue')['default']
     MainLayout: typeof import('./src/components/MainLayout.vue')['default']
     NConfigProvider: typeof import('naive-ui')['NConfigProvider']
+    NDialogProvider: typeof import('naive-ui')['NDialogProvider']
     NGlobalStyle: typeof import('naive-ui')['NGlobalStyle']
     NMessageProvider: typeof import('naive-ui')['NMessageProvider']
     RequestPanel: typeof import('./src/components/RequestPanel.vue')['default']

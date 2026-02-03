@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import {computed, onUnmounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace} from 'naive-ui'
-import {CloudDownloadOutline, PlayOutline, SaveOutline} from '@vicons/ionicons5'
+import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import RequestPanel from './RequestPanel.vue'
 import Sidebar from './Sidebar.vue'
+import EnvManager from './EnvManager.vue'
 import {useRequestStore} from '../stores/request'
+import {useEnvStore} from '../stores/env'
 
 const message = useMessage()
 const store = useRequestStore()
+const envStore = useEnvStore()
 const activeTab = ref('body')
+
+// Environment Manager State
+const showEnvModal = ref(false)
+
+onMounted(() => {
+  envStore.loadEnvs()
+})
 
 // Save Modal State
 const showSaveModal = ref(false)
@@ -162,6 +172,18 @@ const responseHeaders = computed(() => {
             Save
           </n-button>
           <n-button
+              secondary
+              size="small"
+              @click="showEnvModal = true"
+              class="px-2 text-gray-300"
+          >
+            <template #icon>
+              <n-icon>
+                <SettingsOutline/>
+              </n-icon>
+            </template>
+          </n-button>
+          <n-button
               type="primary"
               size="small"
               :loading="store.isLoading"
@@ -277,6 +299,8 @@ const responseHeaders = computed(() => {
         </n-space>
       </n-card>
     </n-modal>
+
+    <EnvManager v-model:show="showEnvModal" />
   </div>
 </template>
 

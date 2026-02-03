@@ -8,7 +8,9 @@ import MainLayout from './components/MainLayout.vue'
   <n-config-provider :theme="darkTheme">
     <n-global-style/>
     <n-message-provider>
-      <MainLayout/>
+      <n-dialog-provider>
+        <MainLayout/>
+      </n-dialog-provider>
     </n-message-provider>
   </n-config-provider>
 </template>

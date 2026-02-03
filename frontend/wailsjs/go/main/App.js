@@ -10,12 +10,20 @@ export function GetFileList(arg1) {
   return window['go']['main']['App']['GetFileList'](arg1);
 }
 
+export function LoadConfig(arg1, arg2) {
+  return window['go']['main']['App']['LoadConfig'](arg1, arg2);
+}
+
 export function LoadRequest(arg1, arg2) {
   return window['go']['main']['App']['LoadRequest'](arg1, arg2);
 }
 
 export function ParseCurl(arg1) {
   return window['go']['main']['App']['ParseCurl'](arg1);
+}
+
+export function SaveConfig(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3);
 }
 
 export function SaveRequest(arg1, arg2, arg3) {

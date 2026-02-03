@@ -90,3 +90,23 @@ func (a *App) LoadRequest(dir string, filename string) (domain.HttpRequest, erro
 	}
 	return req, nil
 }
+
+// SaveConfig saves a configuration string to a file
+func (a *App) SaveConfig(dir string, filename string, content string) (string, error) {
+	fullPath := filepath.Join(dir, filename)
+	err := a.storage.SaveFile(fullPath, content)
+	if err != nil {
+		return "", err
+	}
+	return fullPath, nil
+}
+
+// LoadConfig loads a configuration string from a file
+func (a *App) LoadConfig(dir string, filename string) (string, error) {
+	fullPath := filepath.Join(dir, filename)
+	content, err := a.storage.LoadFile(fullPath)
+	if err != nil {
+		return "", err
+	}
+	return content, nil
+}

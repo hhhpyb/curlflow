@@ -6,9 +6,13 @@ export function BuildCurl(arg1:domain.HttpRequest):Promise<string>;
 
 export function GetFileList(arg1:string):Promise<Array<string>>;
 
+export function LoadConfig(arg1:string,arg2:string):Promise<string>;
+
 export function LoadRequest(arg1:string,arg2:string):Promise<domain.HttpRequest>;
 
 export function ParseCurl(arg1:string):Promise<domain.HttpRequest>;
+
+export function SaveConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function SaveRequest(arg1:string,arg2:string,arg3:domain.HttpRequest):Promise<string>;
 

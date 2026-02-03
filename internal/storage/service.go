@@ -87,3 +87,17 @@ func (s *Service) LoadRequest(filePath string) (domain.HttpRequest, error) {
 
 	return req, nil
 }
+
+// SaveFile writes a string content to a file.
+func (s *Service) SaveFile(path string, content string) error {
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// LoadFile reads a file and returns its content as a string.
+func (s *Service) LoadFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	return string(data), nil
+}
