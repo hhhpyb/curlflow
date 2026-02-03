@@ -148,6 +148,16 @@ func (a *App) SendRequest(req HttpRequest) HttpResponse {
 		Headers: make(map[string]string),
 	}
 
+	// 0. 基本校验
+	if req.URL == "" {
+		response.Error = "URL cannot be empty"
+		return response
+	}
+	if !strings.HasPrefix(strings.ToLower(req.URL), "http") {
+		response.Error = "Invalid URL: Must start with http:// or https://"
+		return response
+	}
+
 	// 1. 构造 Request 对象
 	// 如果 Body 不为空，转为 Reader
 	var bodyReader io.Reader
@@ -200,4 +210,20 @@ func (a *App) SendRequest(req HttpRequest) HttpResponse {
 	}
 
 	return response
+}
+
+func (a *App) BuildCurl(req HttpRequest) string {
+	curl := fmt.Sprintf("curl -X %s '%s'", req.Method, req.URL)
+
+	for key, value := range req.Headers {
+		curl += fmt.Sprintf(" -H '%s: %s'", key, value)
+	}
+
+	if req.Body != "" {
+		// 简单处理 Body 中的单引号转义，确保在 shell 中可用
+		escapedBody := strings.ReplaceAll(req.Body, "'", "'\\''")
+		curl += fmt.Sprintf(" -d '%s'", escapedBody)
+	}
+
+	return curl
 }
