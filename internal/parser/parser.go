@@ -24,6 +24,10 @@ func ParseCurl(curlCmd string) (*HttpRequest, error) {
 		return nil, errors.New("empty curl command")
 	}
 
+	// Sanitize input: handle line continuations and newlines
+	curlCmd = strings.ReplaceAll(curlCmd, "\\\n", " ")
+	curlCmd = strings.ReplaceAll(curlCmd, "\n", " ")
+
 	args, err := shellwords.Parse(curlCmd)
 	if err != nil {
 		return nil, err
