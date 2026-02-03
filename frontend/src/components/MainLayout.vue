@@ -1,23 +1,30 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect} from 'naive-ui'
-import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline} from '@vicons/ionicons5'
+import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline, ListOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import RequestPanel from './RequestPanel.vue'
 import Sidebar from './Sidebar.vue'
 import EnvManager from './EnvManager.vue'
 import ResponsePanel from './ResponsePanel.vue'
+import SettingsModal from './SettingsModal.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
+import {useSettingsStore} from '../stores/settings'
 
 const message = useMessage()
 const store = useRequestStore()
 const envStore = useEnvStore()
+const settingsStore = useSettingsStore()
 
 // Environment Manager State
 const showEnvModal = ref(false)
+const showSettingsModal = ref(false)
 
 onMounted(async () => {
+  // Load global settings
+  settingsStore.load()
+  
   const restored = await store.init()
   if (restored) {
     if (store.workDir) {
@@ -167,6 +174,20 @@ const handleEnvChange = (val: string) => {
               size="small"
               @click="showEnvModal = true"
               class="px-2 text-gray-300"
+              title="Environment Variables"
+          >
+            <template #icon>
+              <n-icon>
+                <ListOutline/>
+              </n-icon>
+            </template>
+          </n-button>
+          <n-button
+              secondary
+              size="small"
+              @click="showSettingsModal = true"
+              class="px-2 text-gray-300"
+              title="Global Settings"
           >
             <template #icon>
               <n-icon>
@@ -248,6 +269,7 @@ const handleEnvChange = (val: string) => {
     </n-modal>
 
     <EnvManager v-model:show="showEnvModal" />
+    <SettingsModal v-model:show="showSettingsModal" />
   </div>
 </template>
 

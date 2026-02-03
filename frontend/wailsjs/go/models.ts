@@ -43,3 +43,24 @@ export namespace domain {
 
 }
 
+export namespace main {
+	
+	export class AppConfig {
+	    proxyUrl: string;
+	    insecure: boolean;
+	    timeout: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.proxyUrl = source["proxyUrl"];
+	        this.insecure = source["insecure"];
+	        this.timeout = source["timeout"];
+	    }
+	}
+
+}
+

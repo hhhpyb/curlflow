@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref } from 'vue'
 import { useRequestStore } from '../stores/request'
 import { 
     NTabs, NTabPane, NTag, NSpin, NEmpty, NDataTable, 
-    NButton, NIcon, useMessage 
+    NButton, NIcon, useMessage, NModal, NCard 
 } from 'naive-ui'
-import { CopyOutline, CloudOfflineOutline } from '@vicons/ionicons5'
+import { CopyOutline, CloudOfflineOutline, InformationCircleOutline } from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 
 const store = useRequestStore()
 const message = useMessage()
+const showErrorDetail = ref(false)
 
 // --- Computed Properties ---
 
@@ -131,8 +132,13 @@ const headerColumns = [
         
         <!-- Error State -->
         <template v-else-if="hasError">
-             <n-tag type="error" size="small">Error</n-tag>
-             <span class="text-xs text-red-400 truncate">{{ store.response.error }}</span>
+             <n-tag type="error" size="small" class="shrink-0">Error</n-tag>
+             <div class="flex items-center gap-2 min-w-0 flex-1">
+                 <span class="text-xs text-red-400 truncate" :title="store.response.error">{{ store.response.error }}</span>
+                 <n-button text size="tiny" class="text-red-400 hover:text-red-300 shrink-0" @click="showErrorDetail = true">
+                    <n-icon size="16"><InformationCircleOutline /></n-icon>
+                 </n-button>
+             </div>
         </template>
         
         <!-- Idle State -->
@@ -178,6 +184,25 @@ const headerColumns = [
             </n-tab-pane>
         </n-tabs>
     </div>
+
+    <!-- Error Detail Modal -->
+    <n-modal v-model:show="showErrorDetail">
+        <n-card
+            style="width: 600px; max-width: 90vw;"
+            title="Error Details"
+            :bordered="false"
+            size="large"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="bg-gray-100 dark:bg-gray-800 p-4 rounded border border-gray-200 dark:border-gray-700">
+                <pre class="text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap break-all font-mono">{{ store.response.error }}</pre>
+            </div>
+            <div class="flex justify-end mt-4">
+                <n-button @click="showErrorDetail = false">Close</n-button>
+            </div>
+        </n-card>
+    </n-modal>
   </div>
 </template>
 

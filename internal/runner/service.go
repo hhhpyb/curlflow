@@ -1,91 +1,153 @@
 package runner
 
 import (
-	"bytes"
+	"context"
+	"crypto/tls"
 	"curlflow/internal/domain"
+	"curlflow/internal/parser"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
 
-// Service handles HTTP request execution.
-type Service struct{}
-
-// NewService creates a new instance of the runner Service.
-func NewService() *Service {
-	return &Service{}
+// RunnerConfig holds configuration for the HTTP client
+type RunnerConfig struct {
+	ProxyURL string `json:"proxyUrl"`
+	Insecure bool   `json:"insecure"`
+	Timeout  int    `json:"timeout"`
 }
 
-// SendRequest executes the HTTP request described by domain.HttpRequest and returns domain.HttpResponse.
+type Service struct {
+	config RunnerConfig
+}
+
+func NewService() *Service {
+	// Default configuration
+	return &Service{
+		config: RunnerConfig{
+			Timeout: 30, // Default 30s timeout
+		},
+	}
+}
+
+// UpdateConfig updates the runner configuration
+func (s *Service) UpdateConfig(cfg RunnerConfig) {
+	// Sanitize configuration
+	cfg.ProxyURL = strings.TrimSpace(cfg.ProxyURL)
+	s.config = cfg
+}
+
 func (s *Service) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 	start := time.Now()
-	response := domain.HttpResponse{
-		Headers: make(map[string]string),
+
+	fmt.Printf("DEBUG: SendRequest Config - Proxy: '%s', Insecure: %v, Timeout: %d\n",
+		s.config.ProxyURL, s.config.Insecure, s.config.Timeout)
+
+	// 1. Prepare Transport
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: s.config.Insecure,
+		},
+		// Explicitly ensure Proxy is nil by default (direct connection)
+		Proxy: nil,
 	}
 
-	// 0. Basic Validation
-	if req.URL == "" {
-		response.Error = "URL cannot be empty"
-		return response
-	}
-	if !strings.HasPrefix(strings.ToLower(req.URL), "http") {
-		response.Error = "Invalid URL: Must start with http:// or https://"
-		return response
+	// 2. Configure Proxy
+	if s.config.ProxyURL != "" {
+		proxyURL, err := url.Parse(s.config.ProxyURL)
+		if err == nil {
+			fmt.Printf("DEBUG: Using Proxy: %s\n", proxyURL.String())
+			transport.Proxy = http.ProxyURL(proxyURL)
+		} else {
+			return domain.HttpResponse{
+				Error: fmt.Sprintf("Invalid proxy URL: %v", err),
+			}
+		}
+	} else {
+		fmt.Println("DEBUG: No Proxy configured (Direct connection)")
 	}
 
-	// 1. Build Request Object
+	// 3. Create Client
+	timeout := time.Duration(s.config.Timeout) * time.Second
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+	}
+
+	// 4. Create Request
 	var bodyReader io.Reader
 	if req.Body != "" {
-		bodyReader = bytes.NewBufferString(req.Body)
+		bodyReader = strings.NewReader(req.Body)
 	}
 
-	clientReq, err := http.NewRequest(req.Method, req.URL, bodyReader)
+	httpReq, err := http.NewRequest(req.Method, req.URL, bodyReader)
 	if err != nil {
-		response.Error = fmt.Sprintf("Build request failed: %v", err)
-		return response
-	}
-
-	// 2. Fill Headers
-	for k, v := range req.Headers {
-		// Ignore Accept-Encoding to let Go's http.Transport handle gzip automatically.
-		if strings.EqualFold(k, "Accept-Encoding") {
-			continue
+		return domain.HttpResponse{
+			Error: fmt.Sprintf("Failed to create request: %v", err),
 		}
-		// Use direct assignment to preserve header case
-		clientReq.Header[k] = []string{v}
 	}
 
-	// 3. Send Request
-	client := &http.Client{
-		Timeout: 10 * time.Second,
+	// 5. Add Headers
+	for k, v := range req.Headers {
+		httpReq.Header.Set(k, v)
 	}
 
-	resp, err := client.Do(clientReq)
+	// 6. Execute
+	resp, err := client.Do(httpReq)
+	duration := time.Since(start).Milliseconds()
+
 	if err != nil {
-		response.Error = fmt.Sprintf("Network error: %v", err)
-		return response
+		return domain.HttpResponse{
+			Error: fmt.Sprintf("Request failed: %v", err),
+			Time:  duration,
+		}
 	}
 	defer resp.Body.Close()
 
-	// 4. Read Response Body
+	// 7. Read Response
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		response.Error = fmt.Sprintf("Read body failed: %v", err)
-		return response
-	}
-
-	// 5. Assemble Result
-	response.StatusCode = resp.StatusCode
-	response.Body = string(bodyBytes)
-	response.Time = time.Since(start).Milliseconds()
-
-	for k, v := range resp.Header {
-		if len(v) > 0 {
-			response.Headers[k] = v[0]
+		return domain.HttpResponse{
+			Error: fmt.Sprintf("Failed to read response body: %v", err),
+			Time:  duration,
 		}
 	}
 
-	return response
+	// 8. Convert Headers
+	headers := make(map[string]string)
+	for k, v := range resp.Header {
+		headers[k] = strings.Join(v, ", ")
+	}
+
+	return domain.HttpResponse{
+		StatusCode: resp.StatusCode,
+		Headers:    headers,
+		Body:       string(bodyBytes),
+		Time:       duration,
+	}
+}
+
+// ParseCurl parses a cURL command into an HttpRequest object.
+func (s *Service) ParseCurl(curlCommand string) (domain.HttpRequest, error) {
+	req, err := parser.ParseCurl(curlCommand)
+	if err != nil {
+		return domain.HttpRequest{}, err
+	}
+	return *req, nil
+}
+
+// BuildCurl generates a cURL command from an HttpRequest object.
+func (s *Service) BuildCurl(req domain.HttpRequest) (string, error) {
+	return parser.BuildCurl(req), nil
+}
+
+func (s *Service) Execute(ctx context.Context, cmd string) (string, error) {
+	return "", nil
 }

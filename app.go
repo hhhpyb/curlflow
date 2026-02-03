@@ -6,7 +6,9 @@ import (
 	"curlflow/internal/parser"
 	"curlflow/internal/runner"
 	"curlflow/internal/storage"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -15,6 +17,13 @@ type App struct {
 	ctx     context.Context
 	runner  *runner.Service
 	storage *storage.Service
+}
+
+// AppConfig holds global application settings
+type AppConfig struct {
+	ProxyURL string `json:"proxyUrl"`
+	Insecure bool   `json:"insecure"`
+	Timeout  int    `json:"timeout"`
 }
 
 // NewApp creates a new App application struct
@@ -29,6 +38,13 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// Load settings on startup and apply to runner
+	cfg := a.GetSettings()
+	a.runner.UpdateConfig(runner.RunnerConfig{
+		ProxyURL: cfg.ProxyURL,
+		Insecure: cfg.Insecure,
+		Timeout:  cfg.Timeout,
+	})
 }
 
 // ParseCurl parses a curl command string into a HttpRequest struct
@@ -109,4 +125,71 @@ func (a *App) LoadConfig(dir string, filename string) (string, error) {
 		return "", err
 	}
 	return content, nil
+}
+
+func (a *App) getConfigPath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	appDir := filepath.Join(configDir, "curlflow")
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "settings.json"), nil
+}
+
+// GetSettings loads the global application configuration.
+func (a *App) GetSettings() AppConfig {
+	// Default config
+	config := AppConfig{
+		Timeout: 30,
+	}
+
+	path, err := a.getConfigPath()
+	if err != nil {
+		fmt.Printf("Error getting config path: %v\n", err)
+		return config
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// If file doesn't exist, return defaults
+		return config
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		fmt.Printf("Error parsing settings: %v\n", err)
+		return config
+	}
+
+	return config
+}
+
+// SaveSettings saves the global application configuration and updates the runner.
+func (a *App) SaveSettings(cfg AppConfig) string {
+	fmt.Printf("DEBUG: SaveSettings called with: %+v\n", cfg)
+
+	path, err := a.getConfigPath()
+	if err != nil {
+		return fmt.Sprintf("Error getting config path: %v", err)
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("Error marshalling config: %v", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Sprintf("Error writing config file: %v", err)
+	}
+
+	// Immediate effect: Update runner
+	a.runner.UpdateConfig(runner.RunnerConfig{
+		ProxyURL: cfg.ProxyURL,
+		Insecure: cfg.Insecure,
+		Timeout:  cfg.Timeout,
+	})
+
+	return "success"
 }
