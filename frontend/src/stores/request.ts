@@ -6,7 +6,8 @@ import {
     SelectWorkDir,
     GetFileList,
     SaveRequest,
-    LoadRequest
+    LoadRequest,
+    SyncSwagger
 } from '../../wailsjs/go/main/App';
 import { domain } from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
@@ -190,6 +191,36 @@ export const useRequestStore = defineStore('request', {
                 }
             } catch (e) {
                 console.error(`Failed to load file ${filename}:`, e);
+            }
+        },
+
+        async importSwagger(url: string) {
+            if (!this.workDir) {
+                const errMsg = 'No working directory selected. Please open a folder first.';
+                // @ts-ignore
+                if (window.$message) window.$message.error(errMsg);
+                return;
+            }
+
+            try {
+                this.isLoading = true;
+                const result = await SyncSwagger(this.workDir, url);
+                
+                // Show feedback via Naive UI message (assuming window.$message is available)
+                // @ts-ignore
+                if (window.$message) {
+                    // @ts-ignore
+                    window.$message.success(result, { duration: 5000 });
+                }
+
+                // Refresh file list to show new/updated/deleted status
+                await this.fetchFiles();
+            } catch (e) {
+                console.error('Failed to sync swagger:', e);
+                // @ts-ignore
+                if (window.$message) window.$message.error(`Sync Failed: ${e}`);
+            } finally {
+                this.isLoading = false;
             }
         }
     },

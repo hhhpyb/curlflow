@@ -45,3 +45,7 @@ export function SelectWorkDir() {
 export function SendRequest(arg1) {
   return window['go']['main']['App']['SendRequest'](arg1);
 }
+
+export function SyncSwagger(arg1, arg2) {
+  return window['go']['main']['App']['SyncSwagger'](arg1, arg2);
+}

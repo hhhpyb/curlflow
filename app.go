@@ -6,6 +6,7 @@ import (
 	"curlflow/internal/parser"
 	"curlflow/internal/runner"
 	"curlflow/internal/storage"
+	"curlflow/internal/syncer"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,6 +20,7 @@ type App struct {
 	ctx     context.Context
 	runner  *runner.Service
 	storage *storage.Service
+	syncer  *syncer.Service
 }
 
 // AppConfig holds global application settings
@@ -30,9 +32,11 @@ type AppConfig struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
+	storageService := storage.NewService()
 	return &App{
 		runner:  runner.NewService(),
-		storage: storage.NewService(),
+		storage: storageService,
+		syncer:  syncer.NewService(storageService),
 	}
 }
 
@@ -128,6 +132,16 @@ func (a *App) LoadRequest(dir string, filename string) (domain.RequestFile, erro
 		return domain.RequestFile{}, err
 	}
 	return req, nil
+}
+
+// SyncSwagger synchronizes the request files in workDir with the remote Swagger URL
+func (a *App) SyncSwagger(workDir string, url string) string {
+	stats, err := a.syncer.SyncSwagger(context.Background(), workDir, url)
+	if err != nil {
+		return fmt.Sprintf("Error syncing swagger: %v", err)
+	}
+	return fmt.Sprintf("Sync Complete: %d New, %d Updated, %d Deleted (Total: %d)",
+		stats["added"], stats["updated"], stats["deleted"], stats["total"])
 }
 
 // SaveConfig saves a configuration string to a file

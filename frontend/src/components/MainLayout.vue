@@ -13,6 +13,7 @@ import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
 
 const message = useMessage()
+window.$message = message
 const store = useRequestStore()
 const envStore = useEnvStore()
 const settingsStore = useSettingsStore()

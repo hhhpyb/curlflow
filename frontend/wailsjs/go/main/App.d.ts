@@ -24,3 +24,5 @@ export function SaveSettings(arg1:main.AppConfig):Promise<string>;
 export function SelectWorkDir():Promise<string>;
 
 export function SendRequest(arg1:domain.HttpRequest):Promise<domain.HttpResponse>;
+
+export function SyncSwagger(arg1:string,arg2:string):Promise<string>;
