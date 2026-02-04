@@ -16,7 +16,6 @@ const message = useMessage();
 
 // Sync Modal State
 const showSyncModal = ref(false);
-const swaggerUrl = ref('');
 const isSyncing = ref(false);
 
 // Track expanded interface nodes (multi-case groups)
@@ -40,25 +39,28 @@ const handleNewRequest = () => {
   store.createNewRequest();
 };
 
-const handleOpenSync = () => {
+const handleOpenSync = async () => {
   if (!store.workDir) {
     message.warning('请先打开一个工作目录');
     return;
   }
+  await store.loadProjectConfig();
   showSyncModal.value = true;
 };
 
 const handleStartSync = async () => {
-  if (!swaggerUrl.value.trim()) {
+  if (!store.swaggerUrl.trim()) {
     message.warning('请输入 Swagger URL');
     return;
   }
 
   isSyncing.value = true;
   try {
-    await store.importSwagger(swaggerUrl.value.trim());
+    // Save the URL first
+    await store.saveProjectConfig(store.swaggerUrl.trim());
+    // Then import
+    await store.importSwagger(store.swaggerUrl.trim());
     showSyncModal.value = false;
-    swaggerUrl.value = '';
   } catch (e) {
     // Error is handled in store
   } finally {
@@ -247,7 +249,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
         role="dialog"
       >
         <n-space vertical size="large">
-          <n-input v-model:value="swaggerUrl" placeholder="Swagger URL" @keyup.enter="handleStartSync" />
+          <n-input v-model:value="store.swaggerUrl" placeholder="Swagger URL" @keyup.enter="handleStartSync" />
           <div class="flex justify-end gap-2">
             <n-button @click="showSyncModal = false">Cancel</n-button>
             <n-button type="primary" :loading="isSyncing" @click="handleStartSync">Start Sync</n-button>

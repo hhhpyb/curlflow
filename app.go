@@ -168,20 +168,54 @@ func (a *App) SaveConfig(dir string, filename string, content string) (string, e
 	return fullPath, nil
 }
 
-// LoadConfig loads a configuration string from a file
+// LoadConfig loads a configuration string from a file.
+// It specifically checks for .curlflow/ subdirectory if the file is not found in the root.
 func (a *App) LoadConfig(dir string, filename string) (string, error) {
+	// Try the requested path first
 	fullPath := filepath.Join(dir, filename)
 	content, err := a.storage.LoadFile(fullPath)
-	if err != nil {
-		return "", err
+	if err == nil {
+		return content, nil
 	}
-	return content, nil
+
+	// If not found and it's a "standard" config file name, try .curlflow/filename
+	if os.IsNotExist(err) && (filename == "environments.json") {
+		altPath := filepath.Join(dir, ".curlflow", filename)
+		content, err = a.storage.LoadFile(altPath)
+		if err == nil {
+			return content, nil
+		}
+	}
+
+	return "", err
 }
 
 // DeleteFile deletes a request file or config file.
 func (a *App) DeleteFile(dir string, filename string) error {
 	fullPath := filepath.Join(dir, filename)
 	return a.storage.DeleteFile(fullPath)
+}
+
+// GetProjectConfig loads the project configuration for the specified directory.
+func (a *App) GetProjectConfig(dir string) storage.ProjectConfig {
+	config, err := a.storage.LoadProjectConfig(dir)
+	if err != nil {
+		fmt.Printf("GetProjectConfig error: %v\n", err)
+		return storage.ProjectConfig{}
+	}
+	return config
+}
+
+// SaveProjectConfig saves the project configuration (currently just Swagger URL).
+func (a *App) SaveProjectConfig(dir string, url string) string {
+	config := storage.ProjectConfig{
+		SwaggerURL: url,
+	}
+	err := a.storage.SaveProjectConfig(dir, config)
+	if err != nil {
+		return fmt.Sprintf("Error saving project config: %v", err)
+	}
+	return "success"
 }
 
 func (a *App) getConfigPath() (string, error) {

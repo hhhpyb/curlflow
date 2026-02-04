@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import {computed, onMounted, onUnmounted, ref} from 'vue'
-import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect} from 'naive-ui'
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
+import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge} from 'naive-ui'
 import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline, ListOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
-import RequestPanel from './RequestPanel.vue'
+import QueryParamsEditor from './QueryParamsEditor.vue'
+import PathVariablesEditor from './PathVariablesEditor.vue'
+import HeadersEditor from './HeadersEditor.vue'
 import CaseBar from './CaseBar.vue'
 import Sidebar from './Sidebar.vue'
 import EnvManager from './EnvManager.vue'
@@ -134,6 +136,66 @@ const handleEnvChange = (val: string) => {
   envStore.setActiveEnv(val)
   envStore.saveEnvs()
 }
+
+const methodOptions = [
+  { label: 'GET', value: 'GET' },
+  { label: 'POST', value: 'POST' },
+  { label: 'PUT', value: 'PUT' },
+  { label: 'DELETE', value: 'DELETE' },
+  { label: 'PATCH', value: 'PATCH' },
+  { label: 'HEAD', value: 'HEAD' },
+  { label: 'OPTIONS', value: 'OPTIONS' }
+]
+
+const handleRequestBaseChange = () => {
+  store.syncToCurl()
+}
+
+// ================= Env Replacement Logic =================
+const possibleReplacement = ref<string | null>(null)
+watch(
+  () => store.curlCode,
+  (newCode) => {
+    if (newCode && newCode.trim().length > 10) {
+      possibleReplacement.value = envStore.reverseReplace(newCode)
+    } else {
+      possibleReplacement.value = null
+    }
+  }
+)
+
+const applyReplacement = () => {
+  if (possibleReplacement.value) {
+    store.curlCode = possibleReplacement.value
+    store.syncFromCurl()
+    possibleReplacement.value = null
+    message.success('Applied environment variables')
+  }
+}
+
+// ================= Body Logic =================
+const handleBodyChange = (val: string) => {
+  store.request.body = val
+  store.syncToCurl()
+}
+
+const formatBody = () => {
+  if (!store.request.body) return
+  try {
+    const jsonObj = JSON.parse(store.request.body)
+    store.request.body = JSON.stringify(jsonObj, null, 2)
+    store.syncToCurl()
+    message.success('JSON formatted')
+  } catch (e) {
+    message.warning('Invalid JSON content')
+  }
+}
+
+// ================= Curl Logic =================
+const handleCurlChange = (val: string) => {
+  store.curlCode = val
+  store.syncFromCurl()
+}
 </script>
 
 <template>
@@ -224,9 +286,115 @@ const handleEnvChange = (val: string) => {
               Request
             </div>
           </div>
-          <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 overflow-hidden">
-            <CaseBar v-if="store.meta && store.meta.id" />
-            <RequestPanel class="flex-1 min-h-0"/>
+          
+          <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
+            <!-- Optional CaseBar -->
+            <CaseBar v-if="store.meta && store.meta.id" class="mb-3" />
+
+            <!-- URL Bar -->
+            <div class="mb-4">
+              <n-input-group>
+                <n-select
+                  v-model:value="store.request.method"
+                  :options="methodOptions"
+                  :style="{ width: '120px' }"
+                  @update:value="handleRequestBaseChange"
+                />
+                <n-input
+                  v-model:value="store.request.url"
+                  placeholder="https://api.example.com/v1/resource"
+                  @update:value="handleRequestBaseChange"
+                  class="flex-1"
+                />
+              </n-input-group>
+            </div>
+
+            <!-- Unified Request Tabs -->
+            <div v-if="store.request" class="flex-1 flex flex-col min-h-0">
+              <n-tabs type="line" size="small" class="flex-1 flex flex-col" display-directive="show">
+                <!-- Tab 1: Path -->
+                <n-tab-pane name="path">
+                  <template #tab>
+                    <div class="flex items-center gap-1">
+                      Path
+                      <n-badge 
+                        :value="Object.keys(store.pathParams).length" 
+                        :show="Object.keys(store.pathParams).length > 0" 
+                        type="info"
+                        :offset="[4, -4]"
+                        size="small"
+                      />
+                    </div>
+                  </template>
+                  <div class="py-2 h-full overflow-auto">
+                    <PathVariablesEditor
+                      :url="store.request.url"
+                      v-model:modelValue="store.pathParams"
+                      :meta="store.meta"
+                    />
+                  </div>
+                </n-tab-pane>
+
+                <!-- Tab 2: Query -->
+                <n-tab-pane name="query" tab="Query">
+                  <div class="py-2 h-full overflow-auto">
+                    <QueryParamsEditor
+                      v-model:url="store.request.url"
+                      :meta="store.meta"
+                      @update:url="handleRequestBaseChange"
+                    />
+                  </div>
+                </n-tab-pane>
+
+                <!-- Tab 3: Headers -->
+                <n-tab-pane name="headers" tab="Headers">
+                  <div class="py-2 h-full overflow-auto">
+                    <HeadersEditor
+                      v-model:modelValue="store.request.headers"
+                      :meta="store.meta"
+                      @update:modelValue="handleRequestBaseChange"
+                    />
+                  </div>
+                </n-tab-pane>
+
+                <!-- Tab 3: Body -->
+                <n-tab-pane name="body" tab="Body">
+                  <div class="flex flex-col h-full pt-2 gap-2">
+                    <div class="flex justify-end px-1">
+                      <n-button size="tiny" secondary type="info" @click="formatBody">
+                        Format JSON
+                      </n-button>
+                    </div>
+                    <div class="flex-1 min-h-0">
+                      <CodeEditor
+                        :model-value="store.request.body"
+                        language="json"
+                        height="100%"
+                        @update:model-value="handleBodyChange"
+                      />
+                    </div>
+                  </div>
+                </n-tab-pane>
+
+                <!-- Tab 4: Raw Curl -->
+                <n-tab-pane name="curl" tab="Raw Curl">
+                  <div class="h-full pt-2 flex flex-col gap-2">
+                    <n-alert v-if="possibleReplacement" type="info" show-icon class="mb-1">
+                      Detected values matching environment variables.
+                      <template #extra>
+                        <n-button size="tiny" type="primary" @click="applyReplacement">Apply</n-button>
+                      </template>
+                    </n-alert>
+                    <CodeEditor
+                      :model-value="store.curlCode"
+                      language="shell"
+                      height="100%"
+                      @update:model-value="handleCurlChange"
+                    />
+                  </div>
+                </n-tab-pane>
+              </n-tabs>
+            </div>
           </div>
         </div>
 

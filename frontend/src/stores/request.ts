@@ -10,7 +10,9 @@ import {
     SaveFullRequest,
     LoadRequest,
     SyncSwagger,
-    DeleteFile
+    DeleteFile,
+    GetProjectConfig,
+    SaveProjectConfig
 } from '../../wailsjs/go/main/App';
 import { domain, storage } from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
@@ -37,6 +39,10 @@ export const useRequestStore = defineStore('request', {
         workDir: '',
         fileList: [] as storage.FileSummary[],
         currentFileName: '',
+        swaggerUrl: '',
+        
+        // Path Variables: Extracted from URL {key}
+        pathParams: {} as Record<string, string>,
 
         // Search and View settings
         searchKeyword: '',
@@ -151,7 +157,21 @@ export const useRequestStore = defineStore('request', {
 
                 // Re-parse to ensure domain.HttpRequest is up to date with replaced values
                 const finalRequest = await ParseCurl(processedCurl);
-                console.log('--- Debug: Final Request Object ---');
+                
+                // --- Path Variable Substitution ---
+                // Replace {key} in URL with values from pathParams
+                if (finalRequest.url && Object.keys(this.pathParams).length > 0) {
+                    let url = finalRequest.url;
+                    for (const [key, val] of Object.entries(this.pathParams)) {
+                        // Use negative lookahead/lookbehind to ensure we only match single braces {key}
+                        // and not double braces {{key}}
+                        const regex = new RegExp(`(?<!\\{)\\{${key}\\}(?!\\})`, 'g');
+                        url = url.replace(regex, val);
+                    }
+                    finalRequest.url = url;
+                }
+                
+                console.log('--- Debug: Final Request Object (After Path Params) ---');
                 console.log(finalRequest);
                 
                 const res = await SendRequest(finalRequest);
@@ -264,8 +284,8 @@ export const useRequestStore = defineStore('request', {
             }
 
             // Defense: Prevent loading environment config as a request
-            if (filename.toLowerCase() === 'environments.json') {
-                console.warn('Security: Attempted to load environments.json as a request file. Operation blocked.');
+            if (filename.toLowerCase() === '.curlflow/environments.json' || filename.toLowerCase() === 'environments.json') {
+                console.warn('Security: Attempted to load environments configuration as a request file. Operation blocked.');
                 return;
             }
 
@@ -278,6 +298,12 @@ export const useRequestStore = defineStore('request', {
                     // New structure: res has _meta and data
                     // We assign data to this.request to keep UI working
                     this.request = res.data || new domain.HttpRequest();
+                    
+                    // Ensure headers is at least an empty object for UI components
+                    if (!this.request.headers) {
+                        this.request.headers = {};
+                    }
+                    
                     this.meta = res._meta || null;
 
                     this.currentFileName = filename;
@@ -382,6 +408,28 @@ export const useRequestStore = defineStore('request', {
             } catch (e) {
                 console.error('Failed to delete file:', e);
                 throw e;
+            }
+        },
+
+        async loadProjectConfig() {
+            if (!this.workDir) return;
+            try {
+                const config = await GetProjectConfig(this.workDir);
+                this.swaggerUrl = config.swagger_url || '';
+            } catch (e) {
+                console.error('Failed to load project config:', e);
+            }
+        },
+
+        async saveProjectConfig(url: string) {
+            if (!this.workDir) return;
+            try {
+                const result = await SaveProjectConfig(this.workDir, url);
+                if (result === 'success') {
+                    this.swaggerUrl = url;
+                }
+            } catch (e) {
+                console.error('Failed to save project config:', e);
             }
         }
     },

@@ -12,6 +12,8 @@ export function GetFileList(arg1:string):Promise<Array<string>>;
 
 export function GetFileSummaries(arg1:string):Promise<Array<storage.FileSummary>>;
 
+export function GetProjectConfig(arg1:string):Promise<storage.ProjectConfig>;
+
 export function GetSettings():Promise<main.AppConfig>;
 
 export function LoadConfig(arg1:string,arg2:string):Promise<string>;
@@ -23,6 +25,8 @@ export function ParseCurl(arg1:string):Promise<domain.HttpRequest>;
 export function SaveConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function SaveFullRequest(arg1:string,arg2:string,arg3:domain.RequestFile):Promise<string>;
+
+export function SaveProjectConfig(arg1:string,arg2:string):Promise<string>;
 
 export function SaveRequest(arg1:string,arg2:string,arg3:domain.HttpRequest):Promise<string>;
 

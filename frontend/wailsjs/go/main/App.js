@@ -18,6 +18,10 @@ export function GetFileSummaries(arg1) {
   return window['go']['main']['App']['GetFileSummaries'](arg1);
 }
 
+export function GetProjectConfig(arg1) {
+  return window['go']['main']['App']['GetProjectConfig'](arg1);
+}
+
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
@@ -40,6 +44,10 @@ export function SaveConfig(arg1, arg2, arg3) {
 
 export function SaveFullRequest(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveFullRequest'](arg1, arg2, arg3);
+}
+
+export function SaveProjectConfig(arg1, arg2) {
+  return window['go']['main']['App']['SaveProjectConfig'](arg1, arg2);
 }
 
 export function SaveRequest(arg1, arg2, arg3) {

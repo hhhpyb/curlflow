@@ -49,7 +49,7 @@ func (s *Service) ListRequestFiles(dirPath string) ([]string, error) {
 		name := entry.Name()
 		lowerName := strings.ToLower(name)
 		// Filter for .json files (case-insensitive) and ignore directories
-		// Also skip environment configuration file
+		// Also skip environment configuration file (backward compatibility) and settings.json
 		if !entry.IsDir() && strings.HasSuffix(lowerName, ".json") && lowerName != "environments.json" && lowerName != "settings.json" {
 			files = append(files, name)
 		}
@@ -139,8 +139,12 @@ func (s *Service) LoadRequest(filePath string) (domain.RequestFile, error) {
 	return reqFile, nil
 }
 
-// SaveFile writes a string content to a file.
+// SaveFile writes a string content to a file. It ensures the parent directory exists.
 func (s *Service) SaveFile(path string, content string) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
@@ -156,4 +160,49 @@ func (s *Service) LoadFile(path string) (string, error) {
 // DeleteFile removes a file from the file system.
 func (s *Service) DeleteFile(path string) error {
 	return os.Remove(path)
+}
+
+type ProjectConfig struct {
+	SwaggerURL string `json:"swagger_url"`
+	// 未来可扩展其他字段
+}
+
+// LoadProjectConfig reads the project configuration from dir/.curlflow/project.json.
+func (s *Service) LoadProjectConfig(dir string) (ProjectConfig, error) {
+	config := ProjectConfig{}
+	configPath := filepath.Join(dir, ".curlflow", "project.json")
+
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return config, nil // Return empty config if file doesn't exist
+		}
+		return config, fmt.Errorf("failed to read project config: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		return config, fmt.Errorf("failed to unmarshal project config: %w", err)
+	}
+
+	return config, nil
+}
+
+// SaveProjectConfig saves the project configuration to dir/.curlflow/project.json.
+func (s *Service) SaveProjectConfig(dir string, config ProjectConfig) error {
+	projectDir := filepath.Join(dir, ".curlflow")
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		return fmt.Errorf("failed to create project directory: %w", err)
+	}
+
+	configPath := filepath.Join(projectDir, "project.json")
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal project config: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write project config file: %w", err)
+	}
+
+	return nil
 }

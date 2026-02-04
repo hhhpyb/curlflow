@@ -43,7 +43,7 @@ export const useEnvStore = defineStore('env', {
             }
 
             try {
-                const configStr = await LoadConfig(requestStore.workDir, "environments.json");
+                const configStr = await LoadConfig(requestStore.workDir, ".curlflow/environments.json");
                 if (configStr) {
                     const config = JSON.parse(configStr) as EnvConfig;
                     this.allEnvs = config.environments || {};
@@ -66,7 +66,7 @@ export const useEnvStore = defineStore('env', {
                 }
             } catch (e) {
                 // File likely doesn't exist, use defaults
-                console.log('environments.json not found or invalid, using defaults');
+                console.log('.curlflow/environments.json not found or invalid, using defaults');
                 this.initDefaults();
             }
             this.updateCurrentVariables();
@@ -91,7 +91,7 @@ export const useEnvStore = defineStore('env', {
             };
 
             try {
-                await SaveConfig(requestStore.workDir, "environments.json", JSON.stringify(fullConfig, null, 2));
+                await SaveConfig(requestStore.workDir, ".curlflow/environments.json", JSON.stringify(fullConfig, null, 2));
             } catch (e) {
                 console.error('Failed to save environments:', e);
             }

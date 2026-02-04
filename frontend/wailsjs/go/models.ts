@@ -158,6 +158,18 @@ export namespace storage {
 		    return a;
 		}
 	}
+	export class ProjectConfig {
+	    swagger_url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.swagger_url = source["swagger_url"];
+	    }
+	}
 
 }
 
