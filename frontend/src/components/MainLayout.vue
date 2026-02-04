@@ -4,6 +4,7 @@ import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NMod
 import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline, ListOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import RequestPanel from './RequestPanel.vue'
+import CaseBar from './CaseBar.vue'
 import Sidebar from './Sidebar.vue'
 import EnvManager from './EnvManager.vue'
 import ResponsePanel from './ResponsePanel.vue'
@@ -217,11 +218,16 @@ const handleEnvChange = (val: string) => {
       <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
         <!-- Request Section (Top) -->
         <div class="flex flex-col gap-2 min-h-0" :style="{ height: `${requestHeightPercent}%` }">
-          <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2 shrink-0">
-            <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-            Request
+          <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2">
+              <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+              Request
+            </div>
           </div>
-          <RequestPanel class="flex-1 min-h-0"/>
+          <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 overflow-hidden">
+            <CaseBar v-if="store.meta && store.meta.id" />
+            <RequestPanel class="flex-1 min-h-0"/>
+          </div>
         </div>
 
         <!-- Resizer Handle -->

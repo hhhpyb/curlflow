@@ -7,8 +7,10 @@ import {
     GetFileList,
     GetFileSummaries,
     SaveRequest,
+    SaveFullRequest,
     LoadRequest,
-    SyncSwagger
+    SyncSwagger,
+    DeleteFile
 } from '../../wailsjs/go/main/App';
 import { domain, storage } from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
@@ -78,6 +80,23 @@ export const useRequestStore = defineStore('request', {
             });
 
             return tree;
+        },
+
+        /**
+         * Returns all files (test cases) belonging to the same API (same meta.id).
+         */
+        relatedCases(state): storage.FileSummary[] {
+            if (!state.meta || !state.meta.id) return [];
+
+            return state.fileList
+                .filter(f => f.meta.id === state.meta?.id)
+                .sort((a, b) => {
+                    // Main case (shortest name) first, then alphabetical
+                    if (a.fileName.length !== b.fileName.length) {
+                        return a.fileName.length - b.fileName.length;
+                    }
+                    return a.fileName.localeCompare(b.fileName);
+                });
         }
     },
     actions: {
@@ -276,6 +295,70 @@ export const useRequestStore = defineStore('request', {
                 if (window.$message) window.$message.error(`Sync Failed: ${e}`);
             } finally {
                 this.isLoading = false;
+            }
+        },
+
+        async createCase(caseName: string) {
+            if (!this.workDir || !this.currentFileName || !this.meta) {
+                throw new Error('Cannot create case: No active request file.');
+            }
+
+            const cleanCaseName = caseName.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+            if (!cleanCaseName) throw new Error('Invalid case name.');
+
+            // 1. Determine main filename (strip extension and any existing case suffix)
+            let baseName = this.currentFileName.replace(/\.json$/i, '');
+            baseName = baseName.split('_case_')[0];
+
+            const newFileName = `${baseName}_case_${cleanCaseName}.json`;
+
+            // 2. Construct new metadata (Deep copy tags and keep same ID)
+            const newMeta = { 
+                ...this.meta,
+                tags: [...(this.meta.tags || [])], // Ensure tags are copied
+                status: 'active',
+                last_synced_at: Math.floor(Date.now() / 1000),
+                summary: `${this.meta.summary || baseName} (${caseName})`
+            } as any;
+
+            // 3. Construct complete RequestFile object
+            const reqFile = {
+                _meta: newMeta,
+                data: this.request
+            } as any;
+
+            try {
+                // 4. Use SaveFullRequest to ensure our custom meta is preserved
+                const savedPath = await SaveFullRequest(this.workDir, newFileName, reqFile);
+                if (savedPath) {
+                    await this.fetchFiles();
+                    await this.loadFrom(newFileName);
+                }
+            } catch (e) {
+                console.error('Failed to create case:', e);
+                throw e;
+            }
+        },
+
+        async deleteCurrentFile() {
+            if (!this.workDir || !this.currentFileName) return;
+
+            try {
+                await DeleteFile(this.workDir, this.currentFileName);
+                
+                const deletedName = this.currentFileName;
+                const alternatives = this.relatedCases.filter(f => f.fileName !== deletedName);
+                
+                await this.fetchFiles();
+
+                if (alternatives.length > 0) {
+                    await this.loadFrom(alternatives[0].fileName);
+                } else {
+                    this.createNewRequest();
+                }
+            } catch (e) {
+                console.error('Failed to delete file:', e);
+                throw e;
             }
         }
     },

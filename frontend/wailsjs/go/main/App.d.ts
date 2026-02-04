@@ -6,6 +6,8 @@ import {main} from '../models';
 
 export function BuildCurl(arg1:domain.HttpRequest):Promise<string>;
 
+export function DeleteFile(arg1:string,arg2:string):Promise<void>;
+
 export function GetFileList(arg1:string):Promise<Array<string>>;
 
 export function GetFileSummaries(arg1:string):Promise<Array<storage.FileSummary>>;
@@ -19,6 +21,8 @@ export function LoadRequest(arg1:string,arg2:string):Promise<domain.RequestFile>
 export function ParseCurl(arg1:string):Promise<domain.HttpRequest>;
 
 export function SaveConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function SaveFullRequest(arg1:string,arg2:string,arg3:domain.RequestFile):Promise<string>;
 
 export function SaveRequest(arg1:string,arg2:string,arg3:domain.HttpRequest):Promise<string>;
 

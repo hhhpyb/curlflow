@@ -6,6 +6,10 @@ export function BuildCurl(arg1) {
   return window['go']['main']['App']['BuildCurl'](arg1);
 }
 
+export function DeleteFile(arg1, arg2) {
+  return window['go']['main']['App']['DeleteFile'](arg1, arg2);
+}
+
 export function GetFileList(arg1) {
   return window['go']['main']['App']['GetFileList'](arg1);
 }
@@ -32,6 +36,10 @@ export function ParseCurl(arg1) {
 
 export function SaveConfig(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3);
+}
+
+export function SaveFullRequest(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveFullRequest'](arg1, arg2, arg3);
 }
 
 export function SaveRequest(arg1, arg2, arg3) {

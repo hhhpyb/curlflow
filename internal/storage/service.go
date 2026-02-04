@@ -152,3 +152,8 @@ func (s *Service) LoadFile(path string) (string, error) {
 	}
 	return string(data), nil
 }
+
+// DeleteFile removes a file from the file system.
+func (s *Service) DeleteFile(path string) error {
+	return os.Remove(path)
+}

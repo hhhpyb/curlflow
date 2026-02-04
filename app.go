@@ -132,6 +132,11 @@ func (a *App) SaveRequest(dir string, filename string, req domain.HttpRequest) (
 	return path, nil
 }
 
+// SaveFullRequest saves a complete RequestFile including its metadata.
+func (a *App) SaveFullRequest(dir string, filename string, reqFile domain.RequestFile) (string, error) {
+	return a.storage.SaveRequest(dir, filename, reqFile)
+}
+
 // LoadRequest loads a request from a file
 func (a *App) LoadRequest(dir string, filename string) (domain.RequestFile, error) {
 	// Construct full path since storage expects it
@@ -171,6 +176,12 @@ func (a *App) LoadConfig(dir string, filename string) (string, error) {
 		return "", err
 	}
 	return content, nil
+}
+
+// DeleteFile deletes a request file or config file.
+func (a *App) DeleteFile(dir string, filename string) error {
+	fullPath := filepath.Join(dir, filename)
+	return a.storage.DeleteFile(fullPath)
 }
 
 func (a *App) getConfigPath() (string, error) {
