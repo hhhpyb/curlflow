@@ -45,9 +45,11 @@ export namespace domain {
 	    key: string;
 	    status: string;
 	    summary: string;
+	    description: string;
 	    tags: string[];
 	    swagger_path: string;
 	    last_synced_at: number;
+	    param_docs: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
 	        return new MetaData(source);
@@ -59,9 +61,11 @@ export namespace domain {
 	        this.key = source["key"];
 	        this.status = source["status"];
 	        this.summary = source["summary"];
+	        this.description = source["description"];
 	        this.tags = source["tags"];
 	        this.swagger_path = source["swagger_path"];
 	        this.last_synced_at = source["last_synced_at"];
+	        this.param_docs = source["param_docs"];
 	    }
 	}
 	export class RequestFile {

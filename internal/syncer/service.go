@@ -46,7 +46,8 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 			if err == nil {
 				key := file.Meta.Key
 				if key == "" {
-					key = fmt.Sprintf("%s_%s", strings.ToUpper(file.Data.Method), file.Data.URL)
+					// Fallback for older files without key
+					key = fmt.Sprintf("%s_%s", strings.ToUpper(file.Data.Method), file.Meta.SwaggerPath)
 				}
 				localMap[key] = localEntry{File: &file, Filename: filename}
 			}
@@ -70,11 +71,6 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 				currentKey := fmt.Sprintf("%s_%s", method, path)
 				processedKeys[currentKey] = true
 
-				finalURL := path
-				if !strings.HasPrefix(path, "http") {
-					finalURL = fmt.Sprintf("{{base_url}}%s", path)
-				}
-
 				summary := op.Summary
 				if summary == "" {
 					summary = op.OperationID
@@ -83,28 +79,64 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 					summary = summary[:97] + "..."
 				}
 
+				// Extract parameter docs
+				paramDocs := make(map[string]string)
+				for _, paramRef := range op.Parameters {
+					p := paramRef.Value
+					if p != nil {
+						docKey := p.Name
+						if p.In != "" {
+							docKey = p.In + "." + p.Name
+						}
+						if p.Description != "" {
+							paramDocs[docKey] = p.Description
+						}
+					}
+				}
+
+				// Generate Body and extract body property docs
+				generatedBody := s.generateBody(op, paramDocs)
+
 				if entry, exists := localMap[currentKey]; exists {
 					stats["updated"]++
 					existingFile := entry.File
+
+					// Update Metadata
 					existingFile.Meta.Status = "active"
 					existingFile.Meta.Summary = summary
+					existingFile.Meta.Description = op.Description
 					existingFile.Meta.LastSyncedAt = now
 					existingFile.Meta.SwaggerPath = path
 					existingFile.Meta.Tags = op.Tags
 					existingFile.Meta.Key = currentKey
-					existingFile.Data.Method = method
-					existingFile.Data.URL = finalURL
+					existingFile.Meta.ParamDocs = paramDocs
 
+					// Update Data - Headers (Merge)
 					if existingFile.Data.Headers == nil {
 						existingFile.Data.Headers = make(map[string]string)
 					}
+					for _, paramRef := range op.Parameters {
+						p := paramRef.Value
+						if p != nil && p.In == "header" {
+							if _, ok := existingFile.Data.Headers[p.Name]; !ok {
+								existingFile.Data.Headers[p.Name] = ""
+							}
+						}
+					}
+
+					// Update Data - Body (only if empty or default)
+					trimmedBody := strings.TrimSpace(existingFile.Data.Body)
+					if trimmedBody == "" || trimmedBody == "{}" {
+						existingFile.Data.Body = generatedBody
+					}
+
+					// Note: URL with Query is NOT updated to preserve user edits
 					s.storage.SaveRequest(dir, entry.Filename, *existingFile)
 				} else {
 					stats["new"]++
-					bodyContent := "{}"
-					if op.RequestBody != nil {
-						bodyContent = "{\n  \"_note\": \"Check Swagger definition for body\"\n}"
-					}
+
+					// Build URL with Query for NEW requests
+					finalURL := s.buildURLWithQuery(path, op)
 
 					newFile := domain.RequestFile{
 						Meta: domain.MetaData{
@@ -112,17 +144,28 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 							Key:          currentKey,
 							Status:       "active",
 							Summary:      summary,
+							Description:  op.Description,
 							Tags:         op.Tags,
 							SwaggerPath:  path,
 							LastSyncedAt: now,
+							ParamDocs:    paramDocs,
 						},
 						Data: domain.HttpRequest{
 							Method:  method,
 							URL:     finalURL,
 							Headers: map[string]string{"Content-Type": "application/json"},
-							Body:    bodyContent,
+							Body:    generatedBody,
 						},
 					}
+
+					// Initial Headers
+					for _, paramRef := range op.Parameters {
+						p := paramRef.Value
+						if p != nil && p.In == "header" {
+							newFile.Data.Headers[p.Name] = ""
+						}
+					}
+
 					filename := s.sanitizeFilename(method + "_" + path)
 					s.storage.SaveRequest(dir, filename, newFile)
 				}
@@ -140,7 +183,139 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 		}
 	}
 
-	return fmt.Sprintf("Sync Complete: %d New, %d Updated, %d Marked Deleted", stats["new"], stats["updated"], stats["deleted"]), nil
+	return fmt.Sprintf("同步完成: 新增 %d, 更新 %d, 已删除(标记) %d", stats["new"], stats["updated"], stats["deleted"]), nil
+}
+
+// buildURLWithQuery constructs URL with base_url placeholder and query parameters.
+func (s *Service) buildURLWithQuery(path string, op *openapi3.Operation) string {
+	finalURL := path
+	if !strings.HasPrefix(path, "http") {
+		finalURL = fmt.Sprintf("{{base_url}}%s", path)
+	}
+
+	var queries []string
+	for _, paramRef := range op.Parameters {
+		param := paramRef.Value
+		if param != nil && param.In == "query" {
+			val := ""
+			if param.Schema != nil && param.Schema.Value != nil {
+				v := param.Schema.Value
+				if v.Default != nil {
+					val = fmt.Sprintf("%v", v.Default)
+				} else if v.Example != nil {
+					val = fmt.Sprintf("%v", v.Example)
+				}
+			}
+			queries = append(queries, fmt.Sprintf("%s=%s", param.Name, val))
+		}
+	}
+
+	if len(queries) > 0 {
+		connector := "?"
+		if strings.Contains(finalURL, "?") {
+			connector = "&"
+		}
+		finalURL += connector + strings.Join(queries, "&")
+	}
+	return finalURL
+}
+
+// generateBody parses request body schema and returns a JSON string.
+func (s *Service) generateBody(op *openapi3.Operation, paramDocs map[string]string) string {
+	if op.RequestBody == nil || op.RequestBody.Value == nil {
+		return ""
+	}
+	content := op.RequestBody.Value.Content.Get("application/json")
+	if content == nil || content.Schema == nil || content.Schema.Value == nil {
+		return ""
+	}
+
+	schema := content.Schema.Value
+
+	// Collect property descriptions into paramDocs (with depth limit)
+	s.collectPropertyDocs("body", schema, paramDocs, 0)
+
+	// Convert schema to JSON (with depth limit)
+	data := s.schemaToJSON(schema, 0)
+	if data == nil {
+		return "{}"
+	}
+
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return "{}"
+	}
+	return string(bytes)
+}
+
+func (s *Service) collectPropertyDocs(prefix string, schema *openapi3.Schema, docs map[string]string, depth int) {
+	if schema == nil || depth > 10 {
+		return
+	}
+	for name, propRef := range schema.Properties {
+		if propRef.Value != nil {
+			fullKey := prefix + "." + name
+			if propRef.Value.Description != "" {
+				docs[fullKey] = propRef.Value.Description
+			}
+			if propRef.Value.Type.Is(openapi3.TypeObject) {
+				s.collectPropertyDocs(fullKey, propRef.Value, docs, depth+1)
+			}
+		}
+	}
+}
+
+func (s *Service) schemaToJSON(schema *openapi3.Schema, depth int) interface{} {
+	if schema == nil || depth > 10 {
+		if depth > 10 {
+			return "<max depth reached>"
+		}
+		return nil
+	}
+
+	// Use Example or Default if available
+	if schema.Example != nil {
+		return schema.Example
+	}
+	if schema.Default != nil {
+		return schema.Default
+	}
+
+	// In kin-openapi v0.123+, Type is *Types (a slice of strings)
+	schemaType := ""
+	if schema.Type != nil && len(*schema.Type) > 0 {
+		schemaType = (*schema.Type)[0]
+	}
+
+	switch schemaType {
+	case openapi3.TypeObject:
+		obj := make(map[string]interface{})
+		for name, propRef := range schema.Properties {
+			if propRef.Value != nil {
+				obj[name] = s.schemaToJSON(propRef.Value, depth+1)
+			}
+		}
+		return obj
+	case openapi3.TypeArray:
+		if schema.Items != nil && schema.Items.Value != nil {
+			return []interface{}{s.schemaToJSON(schema.Items.Value, depth+1)}
+		}
+		return []interface{}{}
+	case openapi3.TypeString:
+		if schema.Format == "date-time" {
+			return time.Now().Format(time.RFC3339)
+		}
+		if len(schema.Enum) > 0 {
+			return schema.Enum[0]
+		}
+		return "<string>"
+	case openapi3.TypeInteger, openapi3.TypeNumber:
+		return 0
+	case openapi3.TypeBoolean:
+		return false
+	default:
+		return nil
+	}
 }
 
 // loadSwaggerSmart handles both Swagger 2.0 and OpenAPI 3.0
@@ -161,7 +336,7 @@ func (s *Service) loadSwaggerSmart(ctx context.Context, uri string) (*openapi3.T
 		return nil, err
 	}
 
-	// Sanitize common bad data from Springfox
+	// Sanitize common bad data (e.g. Springfox symbols)
 	jsonStr := string(rawBytes)
 	jsonStr = strings.ReplaceAll(jsonStr, "«", "_")
 	jsonStr = strings.ReplaceAll(jsonStr, "»", "_")
@@ -182,7 +357,7 @@ func (s *Service) loadSwaggerSmart(ctx context.Context, uri string) (*openapi3.T
 	loaderV3.IsExternalRefsAllowed = true
 	docV3, errV3 := loaderV3.LoadFromData(cleanBytes)
 	if errV3 != nil {
-		return nil, fmt.Errorf("failed to parse (v2/v3). V3 error: %v", errV3)
+		return nil, fmt.Errorf("解析失败 (v2/v3). V3 错误: %v", errV3)
 	}
 
 	return docV3, nil
