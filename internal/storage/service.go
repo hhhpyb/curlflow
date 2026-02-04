@@ -15,6 +15,11 @@ import (
 // Service handles file system operations for persistent storage of requests.
 type Service struct{}
 
+type FileSummary struct {
+	FileName string          `json:"fileName"`
+	Meta     domain.MetaData `json:"meta"`
+}
+
 // NewService creates a new instance of the storage Service.
 func NewService() *Service {
 	return &Service{}
@@ -45,11 +50,54 @@ func (s *Service) ListRequestFiles(dirPath string) ([]string, error) {
 		lowerName := strings.ToLower(name)
 		// Filter for .json files (case-insensitive) and ignore directories
 		// Also skip environment configuration file
-		if !entry.IsDir() && strings.HasSuffix(lowerName, ".json") && lowerName != "environments.json" {
+		if !entry.IsDir() && strings.HasSuffix(lowerName, ".json") && lowerName != "environments.json" && lowerName != "settings.json" {
 			files = append(files, name)
 		}
 	}
 	return files, nil
+}
+
+// ListFileSummaries lists metadata for all .json files in the specified directory.
+func (s *Service) ListFileSummaries(dirPath string) ([]FileSummary, error) {
+	var summaries []FileSummary
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+		lowerName := strings.ToLower(name)
+
+		if entry.IsDir() || !strings.HasSuffix(lowerName, ".json") ||
+			lowerName == "environments.json" || lowerName == "settings.json" {
+			continue
+		}
+
+		filePath := filepath.Join(dirPath, name)
+		file, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+
+		// Use a local struct to only decode the metadata part
+		var partial struct {
+			Meta domain.MetaData `json:"_meta"`
+		}
+
+		decoder := json.NewDecoder(file)
+		err = decoder.Decode(&partial)
+		file.Close()
+
+		if err == nil {
+			summaries = append(summaries, FileSummary{
+				FileName: name,
+				Meta:     partial.Meta,
+			})
+		}
+	}
+
+	return summaries, nil
 }
 
 // SaveRequest saves the domain.RequestFile as a formatted JSON file.

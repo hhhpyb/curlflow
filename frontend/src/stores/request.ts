@@ -5,12 +5,18 @@ import {
     SendRequest,
     SelectWorkDir,
     GetFileList,
+    GetFileSummaries,
     SaveRequest,
     LoadRequest,
     SyncSwagger
 } from '../../wailsjs/go/main/App';
-import { domain } from '../../wailsjs/go/models';
+import { domain, storage } from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
+
+export interface FileSummary {
+    fileName: string;
+    meta: domain.MetaData;
+}
 
 export const useRequestStore = defineStore('request', {
     state: () => ({
@@ -22,9 +28,58 @@ export const useRequestStore = defineStore('request', {
         
         // File Management State
         workDir: '',
-        fileList: [] as string[],
+        fileList: [] as storage.FileSummary[],
         currentFileName: '',
+
+        // Search and View settings
+        searchKeyword: '',
+        showDeleted: false,
     }),
+    getters: {
+        /**
+         * Computes a grouped tree of files based on tags and filters.
+         * Returns: Record<FolderName, FileSummary[]>
+         */
+        fileTree(state): Record<string, storage.FileSummary[]> {
+            // 1. Filter
+            const filtered = state.fileList.filter(item => {
+                // Filter by status
+                if (!state.showDeleted && item.meta.status === 'deleted') {
+                    return false;
+                }
+
+                // Filter by keyword
+                if (state.searchKeyword) {
+                    const keyword = state.searchKeyword.toLowerCase();
+                    const inSummary = (item.meta.summary || '').toLowerCase().includes(keyword);
+                    const inKey = (item.meta.key || '').toLowerCase().includes(keyword);
+                    const inFileName = item.fileName.toLowerCase().includes(keyword);
+                    
+                    if (!inSummary && !inKey && !inFileName) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // 2. Group by Tag
+            const tree: Record<string, storage.FileSummary[]> = {};
+            
+            filtered.forEach(item => {
+                const tag = (item.meta.tags && item.meta.tags.length > 0) 
+                    ? item.meta.tags[0] 
+                    : 'Uncategorized';
+                
+                if (!tree[tag]) {
+                    tree[tag] = [];
+                }
+                tree[tag].push(item);
+            });
+
+            return tree;
+        }
+    },
     actions: {
         async syncFromCurl() {
             try {
@@ -114,11 +169,11 @@ export const useRequestStore = defineStore('request', {
         async fetchFiles() {
             if (!this.workDir) return;
             try {
-                const files = await GetFileList(this.workDir);
-                // Filter out environment configuration file from the list
-                this.fileList = (files || []).filter(file => file.toLowerCase() !== 'environments.json');
+                // Use the new GetFileSummaries method for efficient sidebar loading
+                const summaries = await GetFileSummaries(this.workDir);
+                this.fileList = summaries || [];
             } catch (e) {
-                console.error('Failed to list files:', e);
+                console.error('Failed to list file summaries:', e);
                 this.fileList = [];
             }
         },

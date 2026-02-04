@@ -10,6 +10,10 @@ export function GetFileList(arg1) {
   return window['go']['main']['App']['GetFileList'](arg1);
 }
 
+export function GetFileSummaries(arg1) {
+  return window['go']['main']['App']['GetFileSummaries'](arg1);
+}
+
 export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }

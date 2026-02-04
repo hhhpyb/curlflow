@@ -92,6 +92,16 @@ func (a *App) GetFileList(dir string) ([]string, error) {
 	return files, nil
 }
 
+// GetFileSummaries returns metadata summaries for all request files in the directory.
+func (a *App) GetFileSummaries(dir string) []storage.FileSummary {
+	summaries, err := a.storage.ListFileSummaries(dir)
+	if err != nil {
+		fmt.Printf("GetFileSummaries error: %v\n", err)
+		return []storage.FileSummary{}
+	}
+	return summaries
+}
+
 // SaveRequest saves the request to a file
 func (a *App) SaveRequest(dir string, filename string, req domain.HttpRequest) (string, error) {
 	fullPath := filepath.Join(dir, filename)
