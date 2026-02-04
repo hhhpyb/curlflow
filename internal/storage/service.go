@@ -52,9 +52,9 @@ func (s *Service) ListRequestFiles(dirPath string) ([]string, error) {
 	return files, nil
 }
 
-// SaveRequest saves the domain.HttpRequest as a formatted JSON file.
+// SaveRequest saves the domain.RequestFile as a formatted JSON file.
 // It automatically appends the .json suffix if missing.
-func (s *Service) SaveRequest(dirPath string, filename string, req domain.HttpRequest) (string, error) {
+func (s *Service) SaveRequest(dirPath string, filename string, reqFile domain.RequestFile) (string, error) {
 	if !strings.HasSuffix(strings.ToLower(filename), ".json") {
 		filename += ".json"
 	}
@@ -62,7 +62,7 @@ func (s *Service) SaveRequest(dirPath string, filename string, req domain.HttpRe
 	fullPath := filepath.Join(dirPath, filename)
 
 	// Marshal with indentation for readability
-	data, err := json.MarshalIndent(req, "", "  ")
+	data, err := json.MarshalIndent(reqFile, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal content: %w", err)
 	}
@@ -75,20 +75,20 @@ func (s *Service) SaveRequest(dirPath string, filename string, req domain.HttpRe
 	return fullPath, nil
 }
 
-// LoadRequest reads a JSON file and deserializes it into a domain.HttpRequest.
-func (s *Service) LoadRequest(filePath string) (domain.HttpRequest, error) {
-	var req domain.HttpRequest
+// LoadRequest reads a JSON file and deserializes it into a domain.RequestFile.
+func (s *Service) LoadRequest(filePath string) (domain.RequestFile, error) {
+	var reqFile domain.RequestFile
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return req, fmt.Errorf("failed to read file: %w", err)
+		return reqFile, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	if err := json.Unmarshal(data, &req); err != nil {
-		return req, fmt.Errorf("failed to unmarshal request: %w", err)
+	if err := json.Unmarshal(data, &reqFile); err != nil {
+		return reqFile, fmt.Errorf("failed to unmarshal request: %w", err)
 	}
 
-	return req, nil
+	return reqFile, nil
 }
 
 // SaveFile writes a string content to a file.

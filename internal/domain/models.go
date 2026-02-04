@@ -9,6 +9,21 @@ type HttpRequest struct {
 	Compressed bool              `json:"compressed"`
 }
 
+type RequestFile struct {
+	Meta MetaData    `json:"_meta"`
+	Data HttpRequest `json:"data"`
+}
+
+type MetaData struct {
+	ID           string   `json:"id"`     // UUID, 唯一标识
+	Key          string   `json:"key"`    // 辅助标识 (如 Method + Path)
+	Status       string   `json:"status"` // active, deleted, new
+	Summary      string   `json:"summary"`
+	Tags         []string `json:"tags"`
+	SwaggerPath  string   `json:"swagger_path"`
+	LastSyncedAt int64    `json:"last_synced_at"`
+}
+
 // HttpResponse represents the result of an executed HTTP request.
 type HttpResponse struct {
 	StatusCode int               `json:"statusCode"`

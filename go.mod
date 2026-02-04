@@ -3,6 +3,7 @@ module curlflow
 go 1.23
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/mattn/go-shellwords v1.0.12
 	github.com/spf13/cobra v1.10.2
 	github.com/wailsapp/wails/v2 v2.11.0
@@ -12,7 +13,6 @@ require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect

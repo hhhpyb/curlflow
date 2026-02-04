@@ -15,6 +15,7 @@ export const useRequestStore = defineStore('request', {
     state: () => ({
         curlCode: '',
         request: new domain.HttpRequest(),
+        meta: null as domain.MetaData | null,
         isLoading: false,
         response: new domain.HttpResponse(),
         
@@ -70,6 +71,7 @@ export const useRequestStore = defineStore('request', {
         createNewRequest() {
             this.request = new domain.HttpRequest();
             this.request.method = 'GET';
+            this.meta = null;
             this.curlCode = '';
             this.currentFileName = '';
             // Sync empty request to curl to have a fresh start
@@ -170,10 +172,16 @@ export const useRequestStore = defineStore('request', {
             }
 
             try {
-                const req = await LoadRequest(this.workDir, filename);
-                // Check if req is valid (basic check)
-                if (req) {
-                    this.request = req;
+                // Cast result to any first to avoid type mismatch with old Wails definition if it hasn't updated
+                const res = await LoadRequest(this.workDir, filename) as any;
+                
+                // Check if res is valid
+                if (res) {
+                    // New structure: res has _meta and data
+                    // We assign data to this.request to keep UI working
+                    this.request = res.data || new domain.HttpRequest();
+                    this.meta = res._meta || null;
+
                     this.currentFileName = filename;
                     // Sync the loaded object back to the Curl string
                     await this.syncToCurl();

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 // App struct
@@ -88,7 +90,28 @@ func (a *App) GetFileList(dir string) ([]string, error) {
 
 // SaveRequest saves the request to a file
 func (a *App) SaveRequest(dir string, filename string, req domain.HttpRequest) (string, error) {
-	path, err := a.storage.SaveRequest(dir, filename, req)
+	fullPath := filepath.Join(dir, filename)
+
+	// Attempt to load existing file to preserve metadata
+	existingFile, err := a.storage.LoadRequest(fullPath)
+	var reqFile domain.RequestFile
+
+	if err == nil {
+		// File exists, preserve Meta, update Data
+		reqFile = existingFile
+		reqFile.Data = req
+	} else {
+		// New file or error reading (assume new)
+		reqFile = domain.RequestFile{
+			Meta: domain.MetaData{
+				ID:     uuid.New().String(),
+				Status: "active",
+			},
+			Data: req,
+		}
+	}
+
+	path, err := a.storage.SaveRequest(dir, filename, reqFile)
 	if err != nil {
 		return "", err
 	}
@@ -96,13 +119,13 @@ func (a *App) SaveRequest(dir string, filename string, req domain.HttpRequest) (
 }
 
 // LoadRequest loads a request from a file
-func (a *App) LoadRequest(dir string, filename string) (domain.HttpRequest, error) {
+func (a *App) LoadRequest(dir string, filename string) (domain.RequestFile, error) {
 	// Construct full path since storage expects it
 	fullPath := filepath.Join(dir, filename)
 
 	req, err := a.storage.LoadRequest(fullPath)
 	if err != nil {
-		return domain.HttpRequest{}, err
+		return domain.RequestFile{}, err
 	}
 	return req, nil
 }
