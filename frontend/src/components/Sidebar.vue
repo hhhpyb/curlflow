@@ -7,7 +7,8 @@ import {
 } from 'naive-ui';
 import {
   FolderOpenOutline, DocumentTextOutline, AddOutline,
-  CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline
+  CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline,
+  ChevronForwardOutline, ChevronDownOutline, FlaskOutline
 } from '@vicons/ionicons5';
 
 const store = useRequestStore();
@@ -18,7 +19,17 @@ const showSyncModal = ref(false);
 const swaggerUrl = ref('');
 const isSyncing = ref(false);
 
-// Display current folder name (only the last part)
+// Track expanded interface nodes (multi-case groups)
+const expandedNodes = ref<Set<string>>(new Set());
+
+const toggleNode = (fileName: string) => {
+  if (expandedNodes.value.has(fileName)) {
+    expandedNodes.value.delete(fileName);
+  } else {
+    expandedNodes.value.add(fileName);
+  }
+};
+
 const folderName = computed(() => {
   if (!store.workDir) return 'No Folder Opened';
   const parts = store.workDir.split(/[\\/]/);
@@ -58,6 +69,14 @@ const handleStartSync = async () => {
 const toggleShowDeleted = () => {
   store.showDeleted = !store.showDeleted;
 };
+
+/**
+ * 解析用例名称：从 get_user_case_error.json 中提取 "error"
+ */
+const getCaseLabel = (fileName: string, mainFileName: string) => {
+  const prefix = mainFileName.replace('.json', '') + '_case_';
+  return fileName.replace(prefix, '').replace('.json', '');
+};
 </script>
 
 <template>
@@ -87,7 +106,7 @@ const toggleShowDeleted = () => {
         <n-input
           v-model:value="store.searchKeyword"
           size="small"
-          placeholder="Search requests..."
+          placeholder="Search..."
           clearable
           class="bg-gray-800"
         >
@@ -100,7 +119,6 @@ const toggleShowDeleted = () => {
           size="small"
           @click="toggleShowDeleted"
           :class="store.showDeleted ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500'"
-          title="Toggle Deleted Items"
         >
           <template #icon>
             <n-icon :component="store.showDeleted ? EyeOutline : EyeOffOutline" />
@@ -109,64 +127,84 @@ const toggleShowDeleted = () => {
       </div>
     </div>
 
-    <!-- File Tree List -->
+    <!-- Three-Level File Tree -->
     <div class="flex-1 overflow-hidden mt-1">
       <n-scrollbar>
         <div v-if="Object.keys(store.fileTree).length > 0" class="pb-4">
           <n-collapse :default-expanded-names="Object.keys(store.fileTree)" arrow-placement="right">
+            <!-- Level 1: Folder (Tag) -->
             <n-collapse-item
-              v-for="(files, folder) in store.fileTree"
+              v-for="(nodes, folder) in store.fileTree"
               :key="folder"
               :name="folder"
               class="px-2"
             >
               <template #header>
-                <div class="text-xs font-semibold text-gray-500 flex items-center truncate">
-                  <span class="truncate">{{ folder }}</span>
-                  <span class="ml-2 opacity-50 text-[10px]">({{ files.length }})</span>
+                <div class="text-xs font-bold text-gray-500 flex items-center truncate">
+                  <span class="truncate uppercase tracking-tighter">{{ folder }}</span>
+                  <span class="ml-2 opacity-40 text-[9px]">[{{ nodes.length }}]</span>
                 </div>
               </template>
 
               <div class="flex flex-col gap-0.5 mt-1">
-                <div
-                  v-for="file in files"
-                  :key="file.fileName"
-                  @click="store.loadFrom(file.fileName)"
-                  class="group relative flex items-center px-2 py-1.5 cursor-pointer text-sm transition-colors duration-150 rounded border-l-2"
-                  :class="[
-                    store.currentFileName === file.fileName
-                      ? 'bg-blue-500/10 text-blue-400 border-blue-500'
-                      : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                  ]"
-                >
-                  <n-tooltip trigger="hover" placement="right">
-                    <template #trigger>
-                      <div class="flex items-center flex-1 min-w-0">
-                        <n-badge
-                          v-if="file.meta.status === 'new'"
-                          dot
-                          type="success"
-                          class="mr-2 shrink-0"
-                        />
-                        <n-icon
-                          v-else
-                          :component="DocumentTextOutline"
-                          class="mr-2 shrink-0 transition-colors duration-150"
-                          :class="store.currentFileName === file.fileName ? 'text-blue-400' : 'text-gray-600 group-hover:text-gray-400'"
-                        />
-                        <span
-                          class="truncate flex-1"
-                          :class="{ 'line-through text-gray-600': file.meta.status === 'deleted' }"
-                        >
-                          {{ file.meta.summary || file.meta.key || file.fileName.replace('.json', '') }}
-                        </span>
-                      </div>
-                    </template>
-                    <div class="text-xs">
-                      <div>File: {{ file.fileName }}</div>
-                      <div v-if="file.meta.key" class="opacity-70 mt-1">Key: {{ file.meta.key }}</div>
+                <!-- Level 2: Interface Node -->
+                <div v-for="node in nodes" :key="node.mainFile.fileName" class="interface-group">
+                  <div
+                    class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-colors duration-150 rounded border-l-2"
+                    :class="[
+                      store.currentFileName === node.mainFile.fileName
+                        ? 'bg-blue-500/10 text-blue-400 border-blue-500'
+                        : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                    ]"
+                  >
+                    <!-- Expand Icon for Cases -->
+                    <div 
+                      v-if="node.children.length > 0"
+                      class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors"
+                      @click.stop="toggleNode(node.mainFile.fileName)"
+                    >
+                      <n-icon :component="expandedNodes.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
                     </div>
-                  </n-tooltip>
+                    <div v-else class="w-[18px]" />
+
+                    <!-- Main Label -->
+                    <div class="flex items-center flex-1 min-w-0" @click="store.loadFrom(node.mainFile.fileName)">
+                      <n-badge v-if="node.mainFile.meta.status === 'new'" dot type="success" class="mr-2 shrink-0" />
+                      <n-icon
+                        v-else
+                        :component="DocumentTextOutline"
+                        class="mr-2 shrink-0 opacity-50"
+                        :class="store.currentFileName === node.mainFile.fileName ? 'text-blue-400 opacity-100' : ''"
+                      />
+                      <span class="truncate" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
+                        {{ node.mainFile.meta.summary || node.mainFile.meta.key || node.mainFile.fileName.replace('.json', '') }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Level 3: Test Cases (Children) -->
+                  <div v-if="expandedNodes.has(node.mainFile.fileName) && node.children.length > 0" class="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-gray-800 pl-1">
+                    <div
+                      v-for="child in node.children"
+                      :key="child.fileName"
+                      @click="store.loadFrom(child.fileName)"
+                      class="flex items-center px-2 py-1 cursor-pointer rounded transition-colors"
+                      :class="[
+                        store.currentFileName === child.fileName
+                          ? 'bg-blue-500/10 text-blue-300'
+                          : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                      ]"
+                    >
+                      <n-icon :component="FlaskOutline" size="10" class="mr-2 opacity-40" />
+                      <span 
+                        class="text-[11px] truncate"
+                        :class="{ 'line-through text-gray-700': child.meta.status === 'deleted' }"
+                      >
+                        {{ getCaseLabel(child.fileName, node.mainFile.fileName) }}
+                      </span>
+                      <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </n-collapse-item>
@@ -207,32 +245,12 @@ const toggleShowDeleted = () => {
         :bordered="false"
         size="huge"
         role="dialog"
-        aria-modal="true"
       >
         <n-space vertical size="large">
-          <div class="text-sm text-gray-400">
-            请输入 Swagger/OpenAPI 的 JSON URL。系统将自动解析路径并同步到本地工作区。
-          </div>
-
-          <n-input
-            v-model:value="swaggerUrl"
-            placeholder="https://example.com/v2/api-docs"
-            @keyup.enter="handleStartSync"
-          />
-
-          <div class="p-3 bg-blue-500/5 border border-blue-500/10 rounded text-xs text-blue-300/80">
-            <strong>同步说明：</strong> 此操作将创建新接口并更新现有接口的结构，但系统遵循“用户数据优先”原则，不会覆盖您手动填写的 Body 和 Header 值。
-          </div>
-
-          <div class="flex justify-end gap-2 mt-2">
+          <n-input v-model:value="swaggerUrl" placeholder="Swagger URL" @keyup.enter="handleStartSync" />
+          <div class="flex justify-end gap-2">
             <n-button @click="showSyncModal = false">Cancel</n-button>
-            <n-button
-              type="primary"
-              :loading="isSyncing"
-              @click="handleStartSync"
-            >
-              Start Sync
-            </n-button>
+            <n-button type="primary" :loading="isSyncing" @click="handleStartSync">Start Sync</n-button>
           </div>
         </n-space>
       </n-card>
@@ -244,22 +262,15 @@ const toggleShowDeleted = () => {
 .sidebar {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
-
-/* Customize Scrollbar to blend in */
-:deep(.n-scrollbar-rail) {
-  background-color: transparent !important;
-}
-:deep(.n-scrollbar-rail .n-scrollbar-rail__scrollbar) {
-  background-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Remove default padding/margin for collapse to make it tighter */
 :deep(.n-collapse .n-collapse-item .n-collapse-item__header) {
-  padding-top: 4px;
-  padding-bottom: 4px;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 :deep(.n-collapse .n-collapse-item .n-collapse-item__content-inner) {
   padding-top: 0 !important;
-  padding-bottom: 8px !important;
+  padding-bottom: 12px !important;
+}
+.interface-group {
+  margin-bottom: 2px;
 }
 </style>

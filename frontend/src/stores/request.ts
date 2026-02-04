@@ -20,6 +20,11 @@ export interface FileSummary {
     meta: domain.MetaData;
 }
 
+export interface InterfaceNode {
+    mainFile: storage.FileSummary;
+    children: storage.FileSummary[];
+}
+
 export const useRequestStore = defineStore('request', {
     state: () => ({
         curlCode: '',
@@ -39,44 +44,62 @@ export const useRequestStore = defineStore('request', {
     }),
     getters: {
         /**
-         * Computes a grouped tree of files based on tags and filters.
-         * Returns: Record<FolderName, FileSummary[]>
+         * Computes a grouped tree of interfaces and their test cases.
+         * Returns: Record<FolderName, InterfaceNode[]>
          */
-        fileTree(state): Record<string, storage.FileSummary[]> {
-            // 1. Filter
+        fileTree(state): Record<string, InterfaceNode[]> {
+            // 1. Initial Filtering
             const filtered = state.fileList.filter(item => {
-                // Filter by status
-                if (!state.showDeleted && item.meta.status === 'deleted') {
-                    return false;
-                }
+                if (!state.showDeleted && item.meta.status === 'deleted') return false;
 
-                // Filter by keyword
                 if (state.searchKeyword) {
                     const keyword = state.searchKeyword.toLowerCase();
-                    const inSummary = (item.meta.summary || '').toLowerCase().includes(keyword);
-                    const inKey = (item.meta.key || '').toLowerCase().includes(keyword);
-                    const inFileName = item.fileName.toLowerCase().includes(keyword);
-                    
-                    if (!inSummary && !inKey && !inFileName) {
-                        return false;
-                    }
+                    return (
+                        (item.meta.summary || '').toLowerCase().includes(keyword) ||
+                        (item.meta.key || '').toLowerCase().includes(keyword) ||
+                        item.fileName.toLowerCase().includes(keyword)
+                    );
                 }
-
                 return true;
             });
 
-            // 2. Group by Tag
-            const tree: Record<string, storage.FileSummary[]> = {};
-            
+            // 2. Group by meta.id to aggregate cases
+            const groups: Record<string, storage.FileSummary[]> = {};
             filtered.forEach(item => {
-                const tag = (item.meta.tags && item.meta.tags.length > 0) 
-                    ? item.meta.tags[0] 
-                    : 'Uncategorized';
+                const id = item.meta.id || 'no-id';
+                if (!groups[id]) groups[id] = [];
+                groups[id].push(item);
+            });
+
+            // 3. Build InterfaceNodes and group by Folder (Tag)
+            const tree: Record<string, InterfaceNode[]> = {};
+
+            Object.values(groups).forEach(group => {
+                // Sort by filename length to find the "Main" file (usually shortest, e.g., "get_user.json" vs "get_user_case_1.json")
+                group.sort((a, b) => a.fileName.length - b.fileName.length);
                 
-                if (!tree[tag]) {
-                    tree[tag] = [];
-                }
-                tree[tag].push(item);
+                const mainFile = group[0];
+                const children = group.slice(1);
+                
+                const tag = (mainFile.meta.tags && mainFile.meta.tags.length > 0)
+                    ? mainFile.meta.tags[0]
+                    : 'Uncategorized';
+
+                if (!tree[tag]) tree[tag] = [];
+                
+                tree[tag].push({
+                    mainFile,
+                    children
+                });
+            });
+
+            // Sort interfaces within each tag by summary or filename
+            Object.keys(tree).forEach(tag => {
+                tree[tag].sort((a, b) => {
+                    const labelA = a.mainFile.meta.summary || a.mainFile.fileName;
+                    const labelB = b.mainFile.meta.summary || b.mainFile.fileName;
+                    return labelA.localeCompare(labelB);
+                });
             });
 
             return tree;
