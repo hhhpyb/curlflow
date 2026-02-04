@@ -26,6 +26,7 @@ declare module 'vue' {
     NTable: typeof import('naive-ui')['NTable']
     PathVariablesEditor: typeof import('./src/components/PathVariablesEditor.vue')['default']
     QueryParamsEditor: typeof import('./src/components/QueryParamsEditor.vue')['default']
+    RequestMetaModal: typeof import('./src/components/RequestMetaModal.vue')['default']
     RequestPanel: typeof import('./src/components/RequestPanel.vue')['default']
     ResponsePanel: typeof import('./src/components/ResponsePanel.vue')['default']
     SettingsModal: typeof import('./src/components/SettingsModal.vue')['default']

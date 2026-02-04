@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge} from 'naive-ui'
-import {CloudDownloadOutline, PlayOutline, SaveOutline, SettingsOutline, ListOutline} from '@vicons/ionicons5'
+import {
+  CloudDownloadOutline,
+  PlayOutline,
+  SaveOutline,
+  SettingsOutline,
+  ListOutline,
+  InformationCircleOutline,
+  PencilOutline
+} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import QueryParamsEditor from './QueryParamsEditor.vue'
 import PathVariablesEditor from './PathVariablesEditor.vue'
@@ -11,6 +19,7 @@ import Sidebar from './Sidebar.vue'
 import EnvManager from './EnvManager.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import SettingsModal from './SettingsModal.vue'
+import RequestMetaModal from './RequestMetaModal.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
@@ -21,9 +30,10 @@ const store = useRequestStore()
 const envStore = useEnvStore()
 const settingsStore = useSettingsStore()
 
-// Environment Manager State
+// Modal States
 const showEnvModal = ref(false)
 const showSettingsModal = ref(false)
+const showMetaModal = ref(false)
 
 onMounted(async () => {
   // Load global settings
@@ -36,10 +46,6 @@ onMounted(async () => {
     }
   }
 })
-
-// Save Modal State
-const showSaveModal = ref(false)
-const newFilename = ref('')
 
 // Split pane logic
 const requestHeightPercent = ref(50) // Initial height percentage for the top panel
@@ -87,7 +93,6 @@ const handleSave = async () => {
     return
   }
 
-  // If already has a filename, save directly
   if (store.currentFileName) {
     try {
       await store.saveCurrent()
@@ -96,22 +101,32 @@ const handleSave = async () => {
       message.error(e.message || "保存失败")
     }
   } else {
-    // Open modal for new file
-    newFilename.value = ''
-    showSaveModal.value = true
+    showMetaModal.value = true
   }
 }
 
-const confirmSave = async () => {
-  if (!newFilename.value.trim()) {
-    message.warning("文件名不能为空")
-    return
-  }
-  
+const handleMetaSave = async (data: { summary: string; tag: string; description: string }) => {
   try {
-    await store.saveCurrent(newFilename.value)
+    let filename = undefined
+    if (!store.currentFileName) {
+      const defaultName = (data.summary || 'request').toLowerCase().replace(/\s+/g, '_')
+      const input = window.prompt("Enter filename:", `${defaultName}.json`)
+      if (!input) return
+      filename = input.endsWith('.json') ? input : `${input}.json`
+    }
+
+    // This will update meta and call saveCurrent
+    await store.updateRequestMeta(data)
+    
+    // If it was a new file, we need to save again with the chosen filename 
+    // actually updateRequestMeta calls saveCurrent() internally. 
+    // If we passed filename to updateRequestMeta it would be better.
+    // Let's adjust store.updateRequestMeta to accept optional filename.
+    if (filename) {
+        await store.saveCurrent(filename)
+    }
+
     message.success("保存成功")
-    showSaveModal.value = false
   } catch (e: any) {
     message.error(e.message || "保存失败")
   }
@@ -220,6 +235,21 @@ const handleCurlChange = (val: string) => {
               style="width: 150px"
               @update:value="handleEnvChange"
           />
+                        <n-button 
+                          v-if="store.currentFileName"
+                          secondary
+                          size="small"
+                          @click="showMetaModal = true"
+                          class="px-2 text-gray-300"
+                          title="Edit Interface Info"
+                        >
+          
+            <template #icon>
+              <n-icon>
+                <InformationCircleOutline/>
+              </n-icon>
+            </template>
+          </n-button>
           <n-button
               secondary
               size="small"
@@ -284,6 +314,20 @@ const handleCurlChange = (val: string) => {
             <div class="flex items-center gap-2">
               <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
               Request
+              <span v-if="store.meta?.summary" class="ml-2 text-gray-400 normal-case font-sans truncate max-w-[300px]">
+                {{ store.meta.summary }}
+              </span>
+              <n-button 
+                v-if="store.currentFileName"
+                text 
+                size="tiny" 
+                @click="showMetaModal = true" 
+                class="ml-1 text-gray-600 hover:text-blue-400"
+              >
+                <template #icon>
+                  <n-icon :component="PencilOutline" />
+                </template>
+              </n-button>
             </div>
           </div>
           
@@ -413,35 +457,13 @@ const handleCurlChange = (val: string) => {
       </div>
     </div>
 
-    <!-- Save Modal -->
-    <n-modal v-model:show="showSaveModal">
-      <n-card
-        style="width: 400px"
-        title="保存请求"
-        :bordered="false"
-        size="huge"
-        role="dialog"
-        aria-modal="true"
-      >
-        <template #header-extra>
-          <n-icon size="20" class="cursor-pointer" @click="showSaveModal = false">
-            <!-- Close icon could go here -->
-          </n-icon>
-        </template>
-        <n-space vertical>
-          <n-input 
-            v-model:value="newFilename" 
-            placeholder="请输入文件名 (例如: my-request.json)" 
-            @keyup.enter="confirmSave"
-            autofocus
-          />
-          <div class="flex justify-end gap-2 mt-4">
-            <n-button @click="showSaveModal = false">取消</n-button>
-            <n-button type="primary" @click="confirmSave">保存</n-button>
-          </div>
-        </n-space>
-      </n-card>
-    </n-modal>
+    <!-- Modals -->
+    <RequestMetaModal
+      v-model:show="showMetaModal"
+      :initial-data="store.meta"
+      :existing-tags="store.folderOptions"
+      @save="handleMetaSave"
+    />
 
     <EnvManager v-model:show="showEnvModal" />
     <SettingsModal v-model:show="showSettingsModal" />

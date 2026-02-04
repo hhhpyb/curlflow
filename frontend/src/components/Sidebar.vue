@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { useRequestStore } from '../stores/request';
 import {
   NButton, NIcon, NScrollbar, NEmpty, NModal, NCard, NInput, NSpace,
-  useMessage, NCollapse, NCollapseItem, NBadge, NTooltip
+  useMessage, NCollapse, NCollapseItem, NBadge
 } from 'naive-ui';
 import {
   FolderOpenOutline, DocumentTextOutline, AddOutline,

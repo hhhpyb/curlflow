@@ -126,6 +126,14 @@ export const useRequestStore = defineStore('request', {
                     }
                     return a.fileName.localeCompare(b.fileName);
                 });
+        },
+
+        /**
+         * Returns a list of existing folder names for AutoComplete.
+         */
+        folderOptions(): string[] {
+            // fileTree is Record<string, InterfaceNode[]> where key is the folder name
+            return Object.keys(this.fileTree).filter(tag => tag !== 'Uncategorized');
         }
     },
     actions: {
@@ -186,12 +194,37 @@ export const useRequestStore = defineStore('request', {
 
         // ================= File Actions =================
 
+        async updateRequestMeta(metaInfo: { summary: string, tag: string, description: string }) {
+            if (!this.meta) return;
+
+            // 1. Update local state
+            this.meta.summary = metaInfo.summary;
+            this.meta.description = metaInfo.description;
+            this.meta.tags = metaInfo.tag ? [metaInfo.tag] : [];
+
+            // 2. Save to disk
+            try {
+                await this.saveCurrent();
+                // 3. Refresh file list to reflect folder changes in sidebar
+                await this.fetchFiles();
+            } catch (e) {
+                console.error('Failed to update request meta:', e);
+                throw e;
+            }
+        },
+
         createNewRequest() {
             this.request = new domain.HttpRequest();
             this.request.method = 'GET';
+            this.request.url = '';
+            this.request.headers = {};
+            this.request.body = '';
+            
             this.meta = null;
             this.curlCode = '';
             this.currentFileName = '';
+            this.pathParams = {};
+            
             // Sync empty request to curl to have a fresh start
             this.syncToCurl(); 
             this.response = new domain.HttpResponse();
