@@ -136,12 +136,11 @@ func (a *App) LoadRequest(dir string, filename string) (domain.RequestFile, erro
 
 // SyncSwagger synchronizes the request files in workDir with the remote Swagger URL
 func (a *App) SyncSwagger(workDir string, url string) string {
-	stats, err := a.syncer.SyncSwagger(context.Background(), workDir, url)
+	result, err := a.syncer.SyncSwagger(context.Background(), workDir, url)
 	if err != nil {
 		return fmt.Sprintf("Error syncing swagger: %v", err)
 	}
-	return fmt.Sprintf("Sync Complete: %d New, %d Updated, %d Deleted (Total: %d)",
-		stats["added"], stats["updated"], stats["deleted"], stats["total"])
+	return result
 }
 
 // SaveConfig saves a configuration string to a file
