@@ -110,6 +110,7 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 					existingFile.Meta.Tags = op.Tags
 					existingFile.Meta.Key = currentKey
 					existingFile.Meta.ParamDocs = paramDocs
+					existingFile.Meta.Source = "swagger" // 确保标记为 Swagger 来源
 
 					// Update Data - Headers (Merge)
 					if existingFile.Data.Headers == nil {
@@ -149,6 +150,7 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 							SwaggerPath:  path,
 							LastSyncedAt: now,
 							ParamDocs:    paramDocs,
+							Source:       "swagger",
 						},
 						Data: domain.HttpRequest{
 							Method:  method,
@@ -175,11 +177,22 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 
 	// 4. Soft Delete
 	for key, entry := range localMap {
-		if !processedKeys[key] && entry.File.Meta.Status != "deleted" {
-			stats["deleted"]++
-			entry.File.Meta.Status = "deleted"
-			entry.File.Meta.LastSyncedAt = now
-			s.storage.SaveRequest(dir, entry.Filename, *entry.File)
+		if !processedKeys[key] {
+			// 【核心保护】如果是用户手动创建的文件，或者是旧的非Swagger文件，跳过删除
+			if entry.File.Meta.Source == "user" {
+				continue
+			}
+			// 兼容旧数据：如果 Source 为空，且 SwaggerPath 为空，也认为是用户手动创建的
+			if entry.File.Meta.Source == "" && entry.File.Meta.SwaggerPath == "" {
+				continue
+			}
+
+			if entry.File.Meta.Status != "deleted" {
+				stats["deleted"]++
+				entry.File.Meta.Status = "deleted"
+				entry.File.Meta.LastSyncedAt = now
+				s.storage.SaveRequest(dir, entry.Filename, *entry.File)
+			}
 		}
 	}
 

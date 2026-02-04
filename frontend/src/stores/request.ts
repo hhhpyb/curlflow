@@ -12,7 +12,8 @@ import {
     SyncSwagger,
     DeleteFile,
     GetProjectConfig,
-    SaveProjectConfig
+    SaveProjectConfig,
+    GetEnvConfig
 } from '../../wailsjs/go/main/App';
 import { domain, storage } from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
@@ -41,6 +42,12 @@ export const useRequestStore = defineStore('request', {
         currentFileName: '',
         swaggerUrl: '',
         
+        // Environment Config
+        envConfig: {
+            activeEnvName: 'dev',
+            environments: {} as Record<string, { variables: Record<string, string> }>
+        },
+
         // Path Variables: Extracted from URL {key}
         pathParams: {} as Record<string, string>,
 
@@ -137,6 +144,101 @@ export const useRequestStore = defineStore('request', {
         }
     },
     actions: {
+        // Helper function for basic Curl parsing
+        parseCurlSimple(curl: string) {
+            let method = "GET";
+            if (curl.includes("-X POST") || curl.includes("--data")) method = "POST";
+            if (curl.includes("-X PUT")) method = "PUT";
+            if (curl.includes("-X DELETE")) method = "DELETE";
+            if (curl.includes("-X PATCH")) method = "PATCH";
+
+            const urlMatch = curl.match(/['"](https?:\/\/.*?)['"]/);
+            const url = urlMatch ? urlMatch[1] : "";
+
+            let body = "";
+            const bodyMatch = curl.match(/(--data-raw|--data|-d)\s+['"](\{.*?\})['"]/s);
+            if (bodyMatch) {
+                body = bodyMatch[2];
+            }
+
+            const headers: Record<string, string> = {};
+            const headerRegex = /-H\s+['"](.*?):\s?(.*?)['"]/g;
+            let match;
+            while ((match = headerRegex.exec(curl)) !== null) {
+                headers[match[1]] = match[2];
+            }
+
+            return { method, url, body, headers };
+        },
+
+        async importFromCurl(curlCommand: string) {
+            if (!curlCommand) return;
+
+            // 1. Parse Raw Curl
+            const parsed = this.parseCurlSimple(curlCommand);
+            if (!parsed.url) {
+                // @ts-ignore
+                if (window.$message) window.$message.error("Could not extract URL from Curl");
+                return;
+            }
+
+            let finalUrl = parsed.url;
+            let replacedKey = "";
+
+            // 2. Smart Environment Replacement
+            const activeEnv = this.envConfig.activeEnvName;
+            if (activeEnv && this.envConfig.environments[activeEnv]) {
+                const vars = this.envConfig.environments[activeEnv].variables;
+                
+                // Sort by value length descending to match longest prefix first
+                const sortedEntries = Object.entries(vars).sort((a, b) => b[1].length - a[1].length);
+
+                for (const [key, value] of sortedEntries) {
+                    if (value && finalUrl.startsWith(value)) {
+                        finalUrl = finalUrl.replace(value, `{{${key}}}`);
+                        replacedKey = key;
+                        break; 
+                    }
+                }
+            }
+
+            // 3. Update State
+            if (!this.request) {
+                this.createNewRequest();
+            }
+            
+            this.request.method = parsed.method;
+            this.request.url = finalUrl;
+            this.request.headers = parsed.headers;
+            
+            // Try formatting JSON Body
+            try {
+                if (parsed.body) {
+                    const jsonObj = JSON.parse(parsed.body);
+                    this.request.body = JSON.stringify(jsonObj, null, 2);
+                } else {
+                     this.request.body = "";
+                }
+            } catch (e) {
+                this.request.body = parsed.body;
+            }
+            
+            // Sync changes to curl preview
+            await this.syncToCurl();
+
+            // 4. Feedback
+            // @ts-ignore
+            if (window.$message) {
+                if (replacedKey) {
+                    // @ts-ignore
+                    window.$message.success(`Imported & Replaced {{${replacedKey}}}`);
+                } else {
+                    // @ts-ignore
+                    window.$message.success("Imported Curl");
+                }
+            }
+        },
+
         async syncFromCurl() {
             try {
                 const req = await ParseCurl(this.curlCode);
@@ -220,7 +322,14 @@ export const useRequestStore = defineStore('request', {
             this.request.headers = {};
             this.request.body = '';
             
-            this.meta = null;
+            // Initialize meta with source = 'user' for new requests
+            this.meta = {
+                id: crypto.randomUUID(),
+                status: 'active',
+                source: 'user',
+                tags: []
+            } as any;
+            
             this.curlCode = '';
             this.currentFileName = '';
             this.pathParams = {};
@@ -264,6 +373,9 @@ export const useRequestStore = defineStore('request', {
         async fetchFiles() {
             if (!this.workDir) return;
             try {
+                // Also load environment config when fetching files
+                await this.loadEnvConfig();
+                
                 // Use the new GetFileSummaries method for efficient sidebar loading
                 const summaries = await GetFileSummaries(this.workDir);
                 this.fileList = summaries || [];
@@ -294,19 +406,33 @@ export const useRequestStore = defineStore('request', {
             }
 
             try {
-                const savedPath = await SaveRequest(this.workDir, targetName, this.request);
+                // IMPORTANT: Use SaveFullRequest instead of SaveRequest to preserve metadata changes
+                // We construct the full RequestFile object here
+                const reqFile = {
+                    _meta: this.meta || {
+                        id: crypto.randomUUID(), // Generate a new ID if meta is missing
+                        status: 'active',
+                        source: 'user', // Default source for manually saved requests
+                    },
+                    data: this.request
+                };
+
+                const savedPath = await SaveFullRequest(this.workDir, targetName, reqFile as any);
                 if (savedPath) {
-                    // Normalize filename (ensure .json extension is handled if backend didn't return full name, though backend path usually does)
-                    // We trust the logic that if we provided "foo", and it saved "foo.json", we want to track "foo.json"
                     const actualName = targetName.toLowerCase().endsWith('.json') ? targetName : targetName + '.json';
-                    
                     this.currentFileName = actualName;
+                    
+                    // Update local meta if it was newly created
+                    if (!this.meta) {
+                        this.meta = reqFile._meta as any;
+                    }
+                    
                     await this.fetchFiles();
                 }
                 return savedPath;
             } catch (e) {
                 console.error('Failed to save file:', e);
-                throw e; // Re-throw to let UI handle the error display
+                throw e;
             }
         },
 
@@ -399,6 +525,7 @@ export const useRequestStore = defineStore('request', {
                 ...this.meta,
                 tags: [...(this.meta.tags || [])], // Ensure tags are copied
                 status: 'active',
+                source: 'user', // Manual cases are always treated as user data
                 last_synced_at: Math.floor(Date.now() / 1000),
                 summary: `${this.meta.summary || baseName} (${caseName})`
             } as any;
@@ -463,6 +590,16 @@ export const useRequestStore = defineStore('request', {
                 }
             } catch (e) {
                 console.error('Failed to save project config:', e);
+            }
+        },
+
+        async loadEnvConfig() {
+            if (!this.workDir) return;
+            try {
+                const config = await GetEnvConfig(this.workDir);
+                this.envConfig = config || { activeEnvName: '', environments: {} };
+            } catch (e) {
+                console.error('Failed to load env config:', e);
             }
         }
     },

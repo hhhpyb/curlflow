@@ -8,6 +8,8 @@ export function BuildCurl(arg1:domain.HttpRequest):Promise<string>;
 
 export function DeleteFile(arg1:string,arg2:string):Promise<void>;
 
+export function GetEnvConfig(arg1:string):Promise<storage.EnvConfig>;
+
 export function GetFileList(arg1:string):Promise<Array<string>>;
 
 export function GetFileSummaries(arg1:string):Promise<Array<storage.FileSummary>>;

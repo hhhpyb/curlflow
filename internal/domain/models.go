@@ -24,6 +24,7 @@ type MetaData struct {
 	SwaggerPath  string            `json:"swagger_path"`
 	LastSyncedAt int64             `json:"last_synced_at"`
 	ParamDocs    map[string]string `json:"param_docs"` // 用于存储每个参数的说明
+	Source       string            `json:"source"`     // 来源: "swagger" (自动同步) 或 "user" (手动创建)
 }
 
 // HttpResponse represents the result of an executed HTTP request.

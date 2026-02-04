@@ -206,3 +206,36 @@ func (s *Service) SaveProjectConfig(dir string, config ProjectConfig) error {
 
 	return nil
 }
+
+type EnvVarContainer struct {
+	Variables map[string]string `json:"variables"`
+}
+
+type EnvConfig struct {
+	ActiveEnvName string                     `json:"activeEnvName"`
+	Environments  map[string]EnvVarContainer `json:"environments"`
+}
+
+// LoadEnvConfig reads the environment configuration from dir/.curlflow/environments.json.
+func (s *Service) LoadEnvConfig(dir string) (EnvConfig, error) {
+	// Default values
+	config := EnvConfig{
+		ActiveEnvName: "dev",
+		Environments:  make(map[string]EnvVarContainer),
+	}
+
+	configPath := filepath.Join(dir, ".curlflow", "environments.json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return config, nil // Return defaults if file doesn't exist
+		}
+		return config, fmt.Errorf("failed to read env config: %w", err)
+	}
+
+	if err := json.Unmarshal(data, &config); err != nil {
+		return config, fmt.Errorf("failed to unmarshal env config: %w", err)
+	}
+
+	return config, nil
+}

@@ -211,6 +211,27 @@ const handleCurlChange = (val: string) => {
   store.curlCode = val
   store.syncFromCurl()
 }
+
+const copyRealCurl = async () => {
+  const curl = store.curlCode;
+  if (!curl) return;
+
+  const activeEnvName = store.envConfig.activeEnvName;
+  const currentVars = store.envConfig.environments[activeEnvName]?.variables || {};
+
+  // Regex replacement: find all {{key}}
+  const replacedCurl = curl.replace(/{{(.*?)}}/g, (match, key) => {
+    const trimmedKey = key.trim();
+    return currentVars[trimmedKey] !== undefined ? currentVars[trimmedKey] : match;
+  });
+
+  try {
+    await navigator.clipboard.writeText(replacedCurl);
+    message.success(`已复制 Curl (环境: ${activeEnvName || '无'})`);
+  } catch (err) {
+    message.error("复制失败");
+  }
+}
 </script>
 
 <template>
@@ -423,11 +444,19 @@ const handleCurlChange = (val: string) => {
                 <!-- Tab 4: Raw Curl -->
                 <n-tab-pane name="curl" tab="Raw Curl">
                   <div class="h-full pt-2 flex flex-col gap-2">
+                    <div class="flex justify-end px-1 gap-2">
+                      <n-button size="tiny" secondary type="success" @click="copyRealCurl">
+                        <template #icon>
+                          <n-icon><SaveOutline /></n-icon>
+                        </template>
+                        Copy with Env
+                      </n-button>
+                    </div>
                     <n-alert v-if="possibleReplacement" type="info" show-icon class="mb-1">
                       Detected values matching environment variables.
-                      <template #extra>
-                        <n-button size="tiny" type="primary" @click="applyReplacement">Apply</n-button>
-                      </template>
+                      <n-button size="tiny" type="primary" secondary @click="applyReplacement" class="ml-2">
+                        Replace with {{ envStore.activeEnvName }}
+                      </n-button>
                     </n-alert>
                     <CodeEditor
                       :model-value="store.curlCode"

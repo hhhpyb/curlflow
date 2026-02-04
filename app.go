@@ -218,6 +218,20 @@ func (a *App) SaveProjectConfig(dir string, url string) string {
 	return "success"
 }
 
+// GetEnvConfig loads the environment configuration for the specified directory.
+func (a *App) GetEnvConfig(dir string) storage.EnvConfig {
+	config, err := a.storage.LoadEnvConfig(dir)
+	if err != nil {
+		fmt.Printf("GetEnvConfig error: %v\n", err)
+		// Return defaults on error
+		return storage.EnvConfig{
+			ActiveEnvName: "dev",
+			Environments:  make(map[string]storage.EnvVarContainer),
+		}
+	}
+	return config
+}
+
 func (a *App) getConfigPath() (string, error) {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
