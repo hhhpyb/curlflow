@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BodyDocsViewer: typeof import('./src/components/BodyDocsViewer.vue')['default']
     CaseBar: typeof import('./src/components/CaseBar.vue')['default']
     CodeEditor: typeof import('./src/components/CodeEditor.vue')['default']
     EnvManager: typeof import('./src/components/EnvManager.vue')['default']

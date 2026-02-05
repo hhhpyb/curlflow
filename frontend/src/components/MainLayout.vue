@@ -20,6 +20,7 @@ import EnvManager from './EnvManager.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import SettingsModal from './SettingsModal.vue'
 import RequestMetaModal from './RequestMetaModal.vue'
+import BodyDocsViewer from './BodyDocsViewer.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
@@ -376,7 +377,13 @@ const copyRealCurl = async () => {
 
             <!-- Unified Request Tabs -->
             <div v-if="store.request" class="flex-1 flex flex-col min-h-0">
-              <n-tabs type="line" size="small" class="flex-1 flex flex-col" display-directive="show">
+              <n-tabs
+                type="line"
+                size="small"
+                class="flex-1 flex flex-col overflow-hidden"
+                display-directive="show"
+                pane-style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
+              >
                 <!-- Tab 1: Path -->
                 <n-tab-pane name="path">
                   <template #tab>
@@ -441,7 +448,17 @@ const copyRealCurl = async () => {
                   </div>
                 </n-tab-pane>
 
-                <!-- Tab 4: Raw Curl -->
+                <!-- Tab 4: Docs -->
+                <n-tab-pane v-if="store.request.method !== 'GET'" name="docs" tab="Docs">
+                  <div class="py-2 h-full overflow-auto">
+                    <BodyDocsViewer 
+                      :body-json="store.request.body" 
+                      :param-docs="store.meta?.param_docs || {}" 
+                    />
+                  </div>
+                </n-tab-pane>
+
+                <!-- Tab 5: Raw Curl -->
                 <n-tab-pane name="curl" tab="Raw Curl">
                   <div class="h-full pt-2 flex flex-col gap-2">
                     <div class="flex justify-end px-1 gap-2">

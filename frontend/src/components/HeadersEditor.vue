@@ -102,7 +102,7 @@ const removeRow = (index: number) => {
 </script>
 
 <template>
-  <div class="headers-editor">
+  <div class="headers-editor flex-1 overflow-y-auto h-full p-2">
     <n-table size="small" :bordered="false" :single-line="false" class="bg-transparent">
       <thead>
         <tr>
