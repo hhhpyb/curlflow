@@ -233,6 +233,44 @@ const copyRealCurl = async () => {
     message.error("复制失败");
   }
 }
+
+// ================= Global Shortcuts =================
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  // Save: Ctrl+S or Cmd+S
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    handleSave()
+  }
+  
+  // Run: Ctrl+Enter or Cmd+Enter
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    if (!store.isLoading) {
+      e.preventDefault()
+      handleRun()
+    }
+  }
+}
+
+onMounted(async () => {
+  // Load global settings
+  settingsStore.load()
+  
+  const restored = await store.init()
+  if (restored) {
+    if (store.workDir) {
+       await envStore.loadEnvs()
+    }
+  }
+
+  window.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onUnmounted(() => {
+  // Cleanup
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
 </script>
 
 <template>

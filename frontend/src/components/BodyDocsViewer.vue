@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { h, ref, watch } from 'vue'
-import { NDataTable, NTag } from 'naive-ui'
+import { h, ref, watch, computed } from 'vue'
+import { NDataTable, NTag, NInput, NIcon } from 'naive-ui'
+import { SearchOutline } from '@vicons/ionicons5'
 import type { DataTableColumns } from 'naive-ui'
 
 interface Props {
@@ -22,6 +23,7 @@ interface RowData {
 }
 
 const tableData = ref<RowData[]>([])
+const searchKeyword = ref('')
 
 const columns: DataTableColumns<RowData> = [
   {
@@ -116,6 +118,40 @@ const buildTree = (data: any, parentPath: string = ''): RowData[] => {
   return rows
 }
 
+const filterTree = (nodes: RowData[], keyword: string): RowData[] => {
+  if (!keyword) return nodes
+  const lowerKeyword = keyword.toLowerCase()
+
+  const traverse = (node: RowData): RowData | null => {
+    const isMatch = 
+      node.field.toLowerCase().includes(lowerKeyword) || 
+      node.description.toLowerCase().includes(lowerKeyword)
+    
+    let children: RowData[] = []
+    if (node.children) {
+      children = node.children
+        .map(n => traverse(n))
+        .filter((n): n is RowData => n !== null)
+    }
+
+    if (isMatch || children.length > 0) {
+      return {
+        ...node,
+        children: children.length > 0 ? children : undefined
+      }
+    }
+    return null
+  }
+
+  return nodes
+    .map(n => traverse(n))
+    .filter((n): n is RowData => n !== null)
+}
+
+const filteredTableData = computed(() => {
+  return filterTree(tableData.value, searchKeyword.value)
+})
+
 watch(
   [() => props.bodyJson, () => props.paramDocs],
   () => {
@@ -137,9 +173,21 @@ watch(
 
 <template>
   <div class="body-docs-viewer h-full flex flex-col">
+    <div class="mb-2">
+      <n-input
+        v-model:value="searchKeyword"
+        placeholder="Search field or description..."
+        clearable
+        size="small"
+      >
+        <template #suffix>
+          <n-icon :component="SearchOutline" />
+        </template>
+      </n-input>
+    </div>
     <n-data-table
       :columns="columns"
-      :data="tableData"
+      :data="filteredTableData"
       :bordered="false"
       size="small"
       default-expand-all
