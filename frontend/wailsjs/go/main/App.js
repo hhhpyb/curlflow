@@ -42,6 +42,10 @@ export function ParseCurl(arg1) {
   return window['go']['main']['App']['ParseCurl'](arg1);
 }
 
+export function PurgeDeletedFiles(arg1) {
+  return window['go']['main']['App']['PurgeDeletedFiles'](arg1);
+}
+
 export function SaveConfig(arg1, arg2, arg3) {
   return window['go']['main']['App']['SaveConfig'](arg1, arg2, arg3);
 }

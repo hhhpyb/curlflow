@@ -24,6 +24,8 @@ export function LoadRequest(arg1:string,arg2:string):Promise<domain.RequestFile>
 
 export function ParseCurl(arg1:string):Promise<domain.HttpRequest>;
 
+export function PurgeDeletedFiles(arg1:string):Promise<string>;
+
 export function SaveConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function SaveFullRequest(arg1:string,arg2:string,arg3:domain.RequestFile):Promise<string>;

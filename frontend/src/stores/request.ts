@@ -13,7 +13,8 @@ import {
     DeleteFile,
     GetProjectConfig,
     SaveProjectConfig,
-    GetEnvConfig
+    GetEnvConfig,
+    PurgeDeletedFiles
 } from '../../wailsjs/go/main/App';
 import { domain, storage } from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
@@ -590,6 +591,28 @@ export const useRequestStore = defineStore('request', {
                 }
             } catch (e) {
                 console.error('Failed to save project config:', e);
+            }
+        },
+
+        async purgeDeleted() {
+            if (!this.workDir) return;
+            try {
+                const result = await PurgeDeletedFiles(this.workDir);
+                
+                // @ts-ignore
+                if (window.$message) window.$message.success(result);
+
+                // If the currently opened request is one of the purged files, clear the editor
+                if (this.meta && this.meta.status === 'deleted') {
+                    this.createNewRequest();
+                }
+
+                // Refresh the sidebar to reflect the changes
+                await this.fetchFiles();
+            } catch (e) {
+                console.error('Failed to purge deleted files:', e);
+                // @ts-ignore
+                if (window.$message) window.$message.error(`Purge Failed: ${e}`);
             }
         },
 

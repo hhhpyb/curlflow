@@ -3,20 +3,34 @@ import { computed, ref } from 'vue';
 import { useRequestStore } from '../stores/request';
 import {
   NButton, NIcon, NScrollbar, NEmpty, NModal, NCard, NInput, NSpace,
-  useMessage, NCollapse, NCollapseItem, NBadge
+  useMessage, NCollapse, NCollapseItem, NBadge, NDivider, useDialog
 } from 'naive-ui';
 import {
   FolderOpenOutline, DocumentTextOutline, AddOutline,
   CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline,
-  ChevronForwardOutline, ChevronDownOutline, FlaskOutline
+  ChevronForwardOutline, ChevronDownOutline, FlaskOutline, TrashOutline
 } from '@vicons/ionicons5';
 
 const store = useRequestStore();
 const message = useMessage();
+const dialog = useDialog();
 
 // Sync Modal State
 const showSyncModal = ref(false);
 const isSyncing = ref(false);
+
+const handlePurge = () => {
+  dialog.warning({
+    title: 'Confirm Purge',
+    content: 'Are you sure you want to permanently delete all files marked as "deleted"? This action cannot be undone.',
+    positiveText: 'Yes, Delete',
+    negativeText: 'Cancel',
+    onPositiveClick: async () => {
+      await store.purgeDeleted();
+      showSyncModal.value = false;
+    }
+  });
+};
 
 // Track expanded interface nodes (multi-case groups)
 const expandedNodes = ref<Set<string>>(new Set());
@@ -254,6 +268,23 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
             <n-button @click="showSyncModal = false">Cancel</n-button>
             <n-button type="primary" :loading="isSyncing" @click="handleStartSync">Start Sync</n-button>
           </div>
+
+          <n-divider title-placement="left" style="margin-top: 24px; margin-bottom: 12px;">
+            <span class="text-[10px] text-gray-500 uppercase tracking-widest">Maintenance Zone</span>
+          </n-divider>
+
+          <n-button 
+            type="error" 
+            ghost 
+            block 
+            @click="handlePurge"
+            class="mt-2"
+          >
+            <template #icon>
+              <n-icon :component="TrashOutline" />
+            </template>
+            Purge Deleted Files (清理已删除接口)
+          </n-button>
         </n-space>
       </n-card>
     </n-modal>

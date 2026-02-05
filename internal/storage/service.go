@@ -162,6 +162,48 @@ func (s *Service) DeleteFile(path string) error {
 	return os.Remove(path)
 }
 
+// PurgeDeletedFiles physically removes all .json files in the directory that have status "deleted".
+func (s *Service) PurgeDeletedFiles(dir string) (int, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	purgedCount := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		lowerName := strings.ToLower(name)
+
+		// Skip directories and config files
+		if entry.IsDir() || !strings.HasSuffix(lowerName, ".json") ||
+			lowerName == "environments.json" || lowerName == "settings.json" || lowerName == "project.json" {
+			continue
+		}
+
+		filePath := filepath.Join(dir, name)
+		file, err := os.Open(filePath)
+		if err != nil {
+			continue
+		}
+
+		// Only decode the metadata to check status
+		var partial struct {
+			Meta domain.MetaData `json:"_meta"`
+		}
+		decoder := json.NewDecoder(file)
+		err = decoder.Decode(&partial)
+		file.Close()
+
+		if err == nil && partial.Meta.Status == "deleted" {
+			if err := os.Remove(filePath); err == nil {
+				purgedCount++
+			}
+		}
+	}
+
+	return purgedCount, nil
+}
+
 type ProjectConfig struct {
 	SwaggerURL string `json:"swagger_url"`
 	// 未来可扩展其他字段

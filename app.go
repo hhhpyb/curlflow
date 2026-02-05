@@ -196,6 +196,15 @@ func (a *App) DeleteFile(dir string, filename string) error {
 	return a.storage.DeleteFile(fullPath)
 }
 
+// PurgeDeletedFiles physically removes all files marked as "deleted" in the directory.
+func (a *App) PurgeDeletedFiles(dir string) string {
+	count, err := a.storage.PurgeDeletedFiles(dir)
+	if err != nil {
+		return fmt.Sprintf("Error purging files: %v", err)
+	}
+	return fmt.Sprintf("Successfully purged %d files", count)
+}
+
 // GetProjectConfig loads the project configuration for the specified directory.
 func (a *App) GetProjectConfig(dir string) storage.ProjectConfig {
 	config, err := a.storage.LoadProjectConfig(dir)
