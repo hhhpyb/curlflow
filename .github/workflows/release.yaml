@@ -81,7 +81,7 @@ jobs:
 
       - name: Build macOS App
         # macOS 需要生成 .app 包
-        run: wails build -platform darwin/arm64,darwin/amd64 -clean
+        run: wails build -platform darwin/arm64,darwin/amd64 -clean -o ${{ env.APP_NAME }}
 
       - name: Create DMG (Optional - simple zip for MVP)
         # MVP 阶段直接压缩 .app 文件夹最简单
