@@ -22,6 +22,7 @@ import { useEnvStore } from './env';
 export interface FileSummary {
     fileName: string;
     meta: domain.MetaData;
+    method?: string;
 }
 
 export interface InterfaceNode {

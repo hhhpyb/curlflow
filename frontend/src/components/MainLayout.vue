@@ -233,12 +233,14 @@ const copyRealCurl = async () => {
   const curl = store.curlCode;
   if (!curl) return;
 
-  const activeEnvName = store.envConfig.activeEnvName;
+  // Use envStore as the source of truth for active environment
+  const activeEnvName = envStore.activeEnvName;
   const currentVars = store.envConfig.environments[activeEnvName]?.variables || {};
 
   // Regex replacement: find all {{key}}
   const replacedCurl = curl.replace(/{{(.*?)}}/g, (match, key) => {
     const trimmedKey = key.trim();
+    // Check if the key exists in the current environment's variables
     return currentVars[trimmedKey] !== undefined ? currentVars[trimmedKey] : match;
   });
 

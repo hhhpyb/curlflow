@@ -18,6 +18,7 @@ type Service struct{}
 type FileSummary struct {
 	FileName string          `json:"fileName"`
 	Meta     domain.MetaData `json:"meta"`
+	Method   string          `json:"method"`
 }
 
 // NewService creates a new instance of the storage Service.
@@ -83,9 +84,12 @@ func (s *Service) ListFileSummaries(dirPath string) ([]FileSummary, error) {
 			continue
 		}
 
-		// Use a local struct to only decode the metadata part
+		// Use a local struct to decode metadata and method
 		var partial struct {
 			Meta domain.MetaData `json:"_meta"`
+			Data struct {
+				Method string `json:"method"`
+			} `json:"data"`
 		}
 
 		decoder := json.NewDecoder(file)
@@ -96,6 +100,7 @@ func (s *Service) ListFileSummaries(dirPath string) ([]FileSummary, error) {
 			summaries = append(summaries, FileSummary{
 				FileName: name,
 				Meta:     partial.Meta,
+				Method:   partial.Data.Method,
 			})
 		}
 	}

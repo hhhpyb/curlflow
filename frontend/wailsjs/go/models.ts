@@ -215,6 +215,7 @@ export namespace storage {
 	export class FileSummary {
 	    fileName: string;
 	    meta: domain.MetaData;
+	    method: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new FileSummary(source);
@@ -224,6 +225,7 @@ export namespace storage {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.fileName = source["fileName"];
 	        this.meta = this.convertValues(source["meta"], domain.MetaData);
+	        this.method = source["method"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

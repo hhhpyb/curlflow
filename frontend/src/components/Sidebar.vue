@@ -211,6 +211,18 @@ const getMethodColor = (method: string) => {
     default: return 'default';
   }
 };
+
+const getMethodClass = (method: string) => {
+  const m = (method || 'GET').toUpperCase();
+  switch (m) {
+    case 'GET': return 'text-green-500';
+    case 'POST': return 'text-orange-500';
+    case 'PUT': return 'text-blue-500';
+    case 'DELETE': return 'text-red-500';
+    case 'PATCH': return 'text-purple-500';
+    default: return 'text-gray-500';
+  }
+};
 </script>
 
 <template>
@@ -311,66 +323,72 @@ const getMethodColor = (method: string) => {
                   <div class="flex flex-col gap-0.5 mt-1">
                     <!-- Level 2: Interface Node -->
                     <div v-for="node in nodes" :key="node.mainFile.fileName" class="interface-group">
-                      <div
-                        :id="'file-item-' + node.mainFile.fileName"
-                        class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-colors duration-150 rounded border-l-2 file-item"
-                        :class="[
-                          store.currentFileName === node.mainFile.fileName
-                            ? 'bg-blue-500/10 text-blue-400 border-blue-500'
-                            : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                        ]"
-                        @contextmenu.prevent="handleContextMenu($event, node.mainFile.fileName)"
-                      >
-                        <!-- Expand Icon for Cases -->
-                        <div 
-                          v-if="node.children.length > 0"
-                          class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors shrink-0"
-                          @click.stop="toggleNode(node.mainFile.fileName)"
-                        >
-                          <n-icon :component="expandedNodes.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
-                        </div>
-                        <div v-else class="w-[18px] shrink-0" />
-
-                        <!-- Main Label -->
-                        <div class="flex items-center flex-1 min-w-0" @click="store.loadFrom(node.mainFile.fileName)">
-                          <n-badge v-if="node.mainFile.meta.status === 'new'" dot type="success" class="mr-2 shrink-0" />
-                          <n-icon
-                            v-else
-                            :component="DocumentTextOutline"
-                            class="mr-2 shrink-0 opacity-50"
-                            :class="store.currentFileName === node.mainFile.fileName ? 'text-blue-400 opacity-100' : ''"
-                          />
-                          <span class="file-name" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
-                            {{ node.mainFile.meta.summary || node.mainFile.meta.key || node.mainFile.fileName.replace('.json', '') }}
-                          </span>
-                        </div>
-                      </div>
-
+                                          <!-- Interface Entry Row -->
+                                          <div
+                                            :id="'file-item-' + node.mainFile.fileName"
+                                            class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-all duration-150 rounded border-l-2 file-item relative"
+                                            :class="[
+                                              store.currentFileName === node.mainFile.fileName
+                                                ? 'bg-blue-500/10 text-blue-400 border-blue-500'
+                                                : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                                            ]"
+                                            @click="store.loadFrom(node.mainFile.fileName)"
+                                            @contextmenu.prevent="handleContextMenu($event, node.mainFile.fileName)"
+                                          >
+                                            <!-- Expand Icon - Toggle Only -->
+                                            <div 
+                                              v-if="node.children.length > 0"
+                                              class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors shrink-0 z-10"
+                                              @click.stop="toggleNode(node.mainFile.fileName)"
+                                            >
+                                              <n-icon :component="expandedNodes.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
+                                            </div>
+                                            <div v-else class="w-[18px] shrink-0" />
+                      
+                                            <!-- Main Label (Already inside container, so it just displays) -->
+                                            <div class="flex items-center flex-1 min-w-0 pointer-events-none">
+                                              <n-badge v-if="node.mainFile.meta.status === 'new'" dot type="success" class="mr-2 shrink-0" />
+                                              <div 
+                                                v-else 
+                                                class="w-9 text-[10px] font-bold shrink-0 text-left"
+                                                :class="getMethodClass(node.mainFile.method)"
+                                              >
+                                                {{ (node.mainFile.method || 'GET').toUpperCase() }}
+                                              </div>
+                                              <span class="file-name" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
+                                                {{ node.mainFile.meta.summary || node.mainFile.meta.key || node.mainFile.fileName.replace('.json', '') }}
+                                              </span>
+                                            </div>
+                                          </div>
                       <!-- Level 3: Test Cases (Children) -->
                       <div v-if="expandedNodes.has(node.mainFile.fileName) && node.children.length > 0" class="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-gray-800 pl-1">
-                        <div
-                          v-for="child in node.children"
-                          :key="child.fileName"
-                          :id="'file-item-' + child.fileName"
-                          @click="store.loadFrom(child.fileName)"
-                          @contextmenu.prevent="handleContextMenu($event, child.fileName)"
-                          class="flex items-center px-2 py-1 cursor-pointer rounded transition-colors file-item"
-                          :class="[
-                            store.currentFileName === child.fileName
-                              ? 'bg-blue-500/10 text-blue-300'
-                              : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
-                          ]"
-                        >
-                          <n-icon :component="FlaskOutline" size="10" class="mr-2 opacity-40 shrink-0" />
-                          <span 
-                            class="text-[11px] file-name"
-                            :class="{ 'line-through text-gray-700': child.meta.status === 'deleted' }"
-                          >
-                            {{ getCaseLabel(child.fileName, node.mainFile.fileName) }}
-                          </span>
-                          <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto shrink-0" />
-                        </div>
-                      </div>
+                                            <div
+                                              v-for="child in node.children"
+                                              :key="child.fileName"
+                                              :id="'file-item-' + child.fileName"
+                                              class="flex items-center px-2 py-1 cursor-pointer rounded transition-all file-item group/child"
+                                              :class="[
+                                                store.currentFileName === child.fileName
+                                                  ? 'bg-blue-500/10 text-blue-300'
+                                                  : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                                              ]"
+                                              @click="store.loadFrom(child.fileName)"
+                                              @contextmenu.prevent="handleContextMenu($event, child.fileName)"
+                                            >
+                                              <div 
+                                                class="w-9 text-[10px] font-bold shrink-0 text-left opacity-70"
+                                                :class="getMethodClass(child.method)"
+                                              >
+                                                {{ (child.method || 'GET').toUpperCase() }}
+                                              </div>
+                                              <span 
+                                                class="text-[11px] file-name flex-1"
+                                                :class="{ 'line-through text-gray-700': child.meta.status === 'deleted' }"
+                                              >
+                                                {{ getCaseLabel(child.fileName, node.mainFile.fileName) }}
+                                              </span>
+                                              <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto shrink-0" />
+                                            </div>                      </div>
                     </div>
                   </div>
                 </n-collapse-item>
@@ -520,9 +538,8 @@ const getMethodColor = (method: string) => {
 .interface-group {
   margin-bottom: 2px;
 }
-.file-item {
-  width: 100%;
-  overflow: hidden;
+.file-item:active {
+  @apply opacity-70 scale-[0.98];
 }
 .file-name {
   white-space: nowrap;
