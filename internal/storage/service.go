@@ -28,7 +28,10 @@ func NewService() *Service {
 // SelectWorkingDirectory opens a directory selection dialog using Wails runtime.
 func (s *Service) SelectWorkingDirectory(ctx context.Context) (string, error) {
 	options := runtime.OpenDialogOptions{
-		Title: "Select Working Directory",
+		Title:                "Select Working Directory",
+		DefaultDirectory:     "",    // 可以设置为用户的主目录
+		CanCreateDirectories: true,  // <--- 关键：开启新建文件夹支持
+		ShowHiddenFiles:      false, // 可选：是否显示隐藏文件
 	}
 	dir, err := runtime.OpenDirectoryDialog(ctx, options)
 	if err != nil {
