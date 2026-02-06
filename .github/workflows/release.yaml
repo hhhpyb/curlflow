@@ -27,7 +27,7 @@ jobs:
 
       - name: Build Windows App
         # -clean 确保干净构建，-upx 使用压缩(可选), -nsis 生成安装包(如果有配置)
-        run: wails build -platform windows/amd64 -clean
+        run: wails build -platform windows/amd64 -clean -ldflags "-s -w"
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
@@ -56,7 +56,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build Linux App
-        run: wails build -platform linux/amd64 -clean
+        run: wails build -platform linux/amd64 -clean -ldflags "-s -w"
 
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ jobs:
 
       - name: Build macOS App
         # macOS 需要生成 .app 包，使用 universal 生成通用二进制
-        run: wails build -platform darwin/universal -clean
+        run: wails build -platform darwin/universal -clean -ldflags "-s -w"
 
       - name: Create DMG (Optional - simple zip for MVP)
         # MVP 阶段直接压缩 .app 文件夹最简单
