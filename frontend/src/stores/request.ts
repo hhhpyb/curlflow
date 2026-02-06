@@ -16,7 +16,7 @@ import {
     GetEnvConfig,
     PurgeDeletedFiles
 } from '../../wailsjs/go/main/App';
-import { domain, storage } from '../../wailsjs/go/models';
+import {domain, main, storage} from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
 
 export interface FileSummary {
@@ -29,6 +29,37 @@ export interface InterfaceNode {
     children: storage.FileSummary[];
 }
 
+// ==========================================
+// Helper: Clean up Windows CMD escape characters
+// ==========================================
+function preprocessCurl(curl: string): string {
+    if (!curl) return "";
+    let s = curl.trim();
+    // 1. Handle Windows CMD line continuation (caret + newline)
+    s = s.replace(/\^\s*[\r\n]+/g, " ");
+    
+    // 2. Handle standard newlines
+    s = s.replace(/[\r\n]+/g, " ");
+
+    // 3. Handle Windows Escapes safely using placeholders
+    // CMD uses ^" for a standard quote, and ^\^" for an escaped quote inside JSON
+    const SAFE_ESCAPED_QUOTE = "___ESCAPED_QUOTE___";
+
+    s = s.split("^\\^\"").join(SAFE_ESCAPED_QUOTE); // Handle ^\^" first
+    s = s.split('^"').join('"');                    // Handle ^"
+    s = s.split("^{").join("{");                    // Handle ^{
+    s = s.split("^}").join("}");                    // Handle ^}
+    
+    // Restore the placeholder to a standard escaped quote \"
+    s = s.split(SAFE_ESCAPED_QUOTE).join('\\"');
+
+    // 4. Remove any remaining carets that aren't part of valid escapes
+    s = s.replace(/\^/g, "");
+
+    return s.trim();
+}
+
+// ==========================================
 export const useRequestStore = defineStore('request', {
     state: () => ({
         curlCode: '',
@@ -145,103 +176,9 @@ export const useRequestStore = defineStore('request', {
         }
     },
     actions: {
-        // Helper function for basic Curl parsing
-        parseCurlSimple(curl: string) {
-            let method = "GET";
-            if (curl.includes("-X POST") || curl.includes("--data")) method = "POST";
-            if (curl.includes("-X PUT")) method = "PUT";
-            if (curl.includes("-X DELETE")) method = "DELETE";
-            if (curl.includes("-X PATCH")) method = "PATCH";
-
-            const urlMatch = curl.match(/['"](https?:\/\/.*?)['"]/);
-            const url = urlMatch ? urlMatch[1] : "";
-
-            let body = "";
-            const bodyMatch = curl.match(/(--data-raw|--data|-d)\s+['"](\{.*?\})['"]/s);
-            if (bodyMatch) {
-                body = bodyMatch[2];
-            }
-
-            const headers: Record<string, string> = {};
-            const headerRegex = /-H\s+['"](.*?):\s?(.*?)['"]/g;
-            let match;
-            while ((match = headerRegex.exec(curl)) !== null) {
-                headers[match[1]] = match[2];
-            }
-
-            return { method, url, body, headers };
-        },
-
-        async importFromCurl(curlCommand: string) {
-            if (!curlCommand) return;
-
-            // 1. Parse Raw Curl
-            const parsed = this.parseCurlSimple(curlCommand);
-            if (!parsed.url) {
-                // @ts-ignore
-                if (window.$message) window.$message.error("Could not extract URL from Curl");
-                return;
-            }
-
-            let finalUrl = parsed.url;
-            let replacedKey = "";
-
-            // 2. Smart Environment Replacement
-            const activeEnv = this.envConfig.activeEnvName;
-            if (activeEnv && this.envConfig.environments[activeEnv]) {
-                const vars = this.envConfig.environments[activeEnv].variables;
-                
-                // Sort by value length descending to match longest prefix first
-                const sortedEntries = Object.entries(vars).sort((a, b) => b[1].length - a[1].length);
-
-                for (const [key, value] of sortedEntries) {
-                    if (value && finalUrl.startsWith(value)) {
-                        finalUrl = finalUrl.replace(value, `{{${key}}}`);
-                        replacedKey = key;
-                        break; 
-                    }
-                }
-            }
-
-            // 3. Update State
-            if (!this.request) {
-                this.createNewRequest();
-            }
-            
-            this.request.method = parsed.method;
-            this.request.url = finalUrl;
-            this.request.headers = parsed.headers;
-            
-            // Try formatting JSON Body
-            try {
-                if (parsed.body) {
-                    const jsonObj = JSON.parse(parsed.body);
-                    this.request.body = JSON.stringify(jsonObj, null, 2);
-                } else {
-                     this.request.body = "";
-                }
-            } catch (e) {
-                this.request.body = parsed.body;
-            }
-            
-            // Sync changes to curl preview
-            await this.syncToCurl();
-
-            // 4. Feedback
-            // @ts-ignore
-            if (window.$message) {
-                if (replacedKey) {
-                    // @ts-ignore
-                    window.$message.success(`Imported & Replaced {{${replacedKey}}}`);
-                } else {
-                    // @ts-ignore
-                    window.$message.success("Imported Curl");
-                }
-            }
-        },
-
         async syncFromCurl() {
             try {
+                this.curlCode = preprocessCurl(this.curlCode);
                 const req = await ParseCurl(this.curlCode);
                 this.request = req;
             } catch (e) {
