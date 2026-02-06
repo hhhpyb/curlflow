@@ -158,7 +158,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
 </script>
 
 <template>
-  <div class="sidebar flex flex-col h-full bg-gray-900 text-gray-300 border-r border-gray-800 w-[280px] select-none">
+  <div class="sidebar flex flex-col h-full bg-gray-900 text-gray-300 border-r border-gray-800 w-full h-full select-none overflow-hidden">
     <!-- Header -->
     <div class="header flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
       <span class="text-xs font-bold uppercase tracking-wider truncate flex-1 mr-2 text-gray-400" :title="store.workDir">
@@ -208,7 +208,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
 
     <!-- Three-Level File Tree -->
     <div class="flex-1 overflow-hidden mt-1">
-      <n-scrollbar>
+      <n-scrollbar trigger="hover">
         <div v-if="Object.keys(store.fileTree).length > 0" class="pb-4">
           <n-collapse :default-expanded-names="Object.keys(store.fileTree)" arrow-placement="right">
             <!-- Level 1: Folder (Tag) -->
@@ -219,9 +219,9 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
               class="px-2"
             >
               <template #header>
-                <div class="text-xs font-bold text-gray-500 flex items-center truncate">
+                <div class="text-xs font-bold text-gray-500 flex items-center truncate max-w-full">
                   <span class="truncate uppercase tracking-tighter">{{ folder }}</span>
-                  <span class="ml-2 opacity-40 text-[9px]">[{{ nodes.length }}]</span>
+                  <span class="ml-2 opacity-40 text-[9px] shrink-0">[{{ nodes.length }}]</span>
                 </div>
               </template>
 
@@ -230,7 +230,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                 <div v-for="node in nodes" :key="node.mainFile.fileName" class="interface-group">
                   <div
                     :id="'file-item-' + node.mainFile.fileName"
-                    class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-colors duration-150 rounded border-l-2"
+                    class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-colors duration-150 rounded border-l-2 file-item"
                     :class="[
                       store.currentFileName === node.mainFile.fileName
                         ? 'bg-blue-500/10 text-blue-400 border-blue-500'
@@ -241,12 +241,12 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                     <!-- Expand Icon for Cases -->
                     <div 
                       v-if="node.children.length > 0"
-                      class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors"
+                      class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors shrink-0"
                       @click.stop="toggleNode(node.mainFile.fileName)"
                     >
                       <n-icon :component="expandedNodes.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
                     </div>
-                    <div v-else class="w-[18px]" />
+                    <div v-else class="w-[18px] shrink-0" />
 
                     <!-- Main Label -->
                     <div class="flex items-center flex-1 min-w-0" @click="store.loadFrom(node.mainFile.fileName)">
@@ -257,7 +257,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                         class="mr-2 shrink-0 opacity-50"
                         :class="store.currentFileName === node.mainFile.fileName ? 'text-blue-400 opacity-100' : ''"
                       />
-                      <span class="truncate" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
+                      <span class="file-name" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
                         {{ node.mainFile.meta.summary || node.mainFile.meta.key || node.mainFile.fileName.replace('.json', '') }}
                       </span>
                     </div>
@@ -271,21 +271,21 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                       :id="'file-item-' + child.fileName"
                       @click="store.loadFrom(child.fileName)"
                       @contextmenu.prevent="handleContextMenu($event, child.fileName)"
-                      class="flex items-center px-2 py-1 cursor-pointer rounded transition-colors"
+                      class="flex items-center px-2 py-1 cursor-pointer rounded transition-colors file-item"
                       :class="[
                         store.currentFileName === child.fileName
                           ? 'bg-blue-500/10 text-blue-300'
                           : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
                       ]"
                     >
-                      <n-icon :component="FlaskOutline" size="10" class="mr-2 opacity-40" />
+                      <n-icon :component="FlaskOutline" size="10" class="mr-2 opacity-40 shrink-0" />
                       <span 
-                        class="text-[11px] truncate"
+                        class="text-[11px] file-name"
                         :class="{ 'line-through text-gray-700': child.meta.status === 'deleted' }"
                       >
                         {{ getCaseLabel(child.fileName, node.mainFile.fileName) }}
                       </span>
-                      <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto" />
+                      <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto shrink-0" />
                     </div>
                   </div>
                 </div>
@@ -373,6 +373,8 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
 <style scoped>
 .sidebar {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
 }
 :deep(.n-collapse .n-collapse-item .n-collapse-item__header) {
   padding-top: 6px;
@@ -384,5 +386,16 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
 }
 .interface-group {
   margin-bottom: 2px;
+}
+.file-item {
+  width: 100%;
+  overflow: hidden;
+}
+.file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
 }
 </style>

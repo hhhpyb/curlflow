@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
-import {useMessage, useDialog, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge} from 'naive-ui'
+import {useMessage, useDialog, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge, NSplit} from 'naive-ui'
 import {
   CloudDownloadOutline,
   PlayOutline,
@@ -27,7 +27,9 @@ import {useSettingsStore} from '../stores/settings'
 
 const message = useMessage()
 const dialog = useDialog()
+// @ts-ignore
 window.$message = message
+// @ts-ignore
 window.$dialog = dialog
 const store = useRequestStore()
 const envStore = useEnvStore()
@@ -38,10 +40,22 @@ const showEnvModal = ref(false)
 const showSettingsModal = ref(false)
 const showMetaModal = ref(false)
 
+// Horizontal split logic
+const horizontalSplitSize = ref(0.2) // Default 20%
+const handleHorizontalDragEnd = () => {
+  localStorage.setItem('horizontal-split-size', horizontalSplitSize.value.toString())
+}
+
 onMounted(async () => {
   // Load global settings
   settingsStore.load()
   
+  // Restore horizontal split size
+  const savedSize = localStorage.getItem('horizontal-split-size')
+  if (savedSize) {
+    horizontalSplitSize.value = parseFloat(savedSize)
+  }
+
   const restored = await store.init()
   if (restored) {
     if (store.workDir) {
@@ -50,7 +64,7 @@ onMounted(async () => {
   }
 })
 
-// Split pane logic
+// Split pane logic (Vertical)
 const requestHeightPercent = ref(50) // Initial height percentage for the top panel
 const isDragging = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
@@ -276,273 +290,280 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex bg-gray-900 text-gray-200 overflow-hidden">
-    <Sidebar />
-    
-    <div class="flex-1 flex flex-col p-4 gap-4 min-w-0">
-      <!-- Header -->
-      <div class="flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2">
-          <n-icon size="24" color="#4ade80">
-            <CloudDownloadOutline/>
-          </n-icon>
-          <span class="font-bold text-lg tracking-wide text-white">CurlFlow</span>
+  <div class="h-screen w-screen bg-gray-900 text-gray-200 overflow-hidden">
+    <n-split direction="horizontal" v-model:size="horizontalSplitSize" :min="0.15" :max="0.4" @drag-end="handleHorizontalDragEnd" class="h-full">
+      <template #1>
+        <div class="split-pane sidebar-container h-full overflow-hidden">
+          <Sidebar />
         </div>
-        <div class="flex items-center gap-2">
-          <n-select
-              :value="envStore.activeEnvName"
-              :options="envStore.envOptions"
-              size="small"
-              placeholder="Select Env"
-              style="width: 150px"
-              @update:value="handleEnvChange"
-          />
-                        <n-button 
-                          v-if="store.currentFileName"
-                          secondary
-                          size="small"
-                          @click="showMetaModal = true"
-                          class="px-2 text-gray-300"
-                          title="Edit Interface Info"
-                        >
-          
-            <template #icon>
-              <n-icon>
-                <InformationCircleOutline/>
-              </n-icon>
-            </template>
-          </n-button>
-          <n-button
-              secondary
-              size="small"
-              @click="handleSave"
-              class="px-4 text-gray-300"
-          >
-            <template #icon>
-              <n-icon>
-                <SaveOutline/>
-              </n-icon>
-            </template>
-            Save
-          </n-button>
-          <n-button
-              secondary
-              size="small"
-              @click="showEnvModal = true"
-              class="px-2 text-gray-300"
-              title="Environment Variables"
-          >
-            <template #icon>
-              <n-icon>
-                <ListOutline/>
-              </n-icon>
-            </template>
-          </n-button>
-          <n-button
-              secondary
-              size="small"
-              @click="showSettingsModal = true"
-              class="px-2 text-gray-300"
-              title="Global Settings"
-          >
-            <template #icon>
-              <n-icon>
-                <SettingsOutline/>
-              </n-icon>
-            </template>
-          </n-button>
-          <n-button
-              type="primary"
-              size="small"
-              :loading="store.isLoading"
-              @click="handleRun"
-              class="px-6"
-          >
-            <template #icon>
-              <n-icon>
-                <PlayOutline/>
-              </n-icon>
-            </template>
-            Run
-          </n-button>
-        </div>
-      </div>
-
-      <!-- Main Content Area -->
-      <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
-        <!-- Request Section (Top) -->
-        <div class="flex flex-col gap-2 min-h-0" :style="{ height: `${requestHeightPercent}%` }">
-          <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center justify-between shrink-0">
+      </template>
+      <template #2>
+        <div class="split-pane content-container h-full p-4 flex flex-col gap-4 min-w-0 overflow-hidden">
+          <!-- Header -->
+          <div class="flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2">
-              <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-              Request
-              <span v-if="store.meta?.summary" class="ml-2 text-gray-400 normal-case font-sans truncate max-w-[300px]">
-                {{ store.meta.summary }}
-              </span>
-              <n-button 
-                v-if="store.currentFileName"
-                text 
-                size="tiny" 
-                @click="showMetaModal = true" 
-                class="ml-1 text-gray-600 hover:text-blue-400"
+              <n-icon size="24" color="#4ade80">
+                <CloudDownloadOutline/>
+              </n-icon>
+              <span class="font-bold text-lg tracking-wide text-white">CurlFlow</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <n-select
+                  :value="envStore.activeEnvName"
+                  :options="envStore.envOptions"
+                  size="small"
+                  placeholder="Select Env"
+                  style="width: 150px"
+                  @update:value="handleEnvChange"
+              />
+                            <n-button 
+                              v-if="store.currentFileName"
+                              secondary
+                              size="small"
+                              @click="showMetaModal = true"
+                              class="px-2 text-gray-300"
+                              title="Edit Interface Info"
+                            >
+              
+                <template #icon>
+                  <n-icon>
+                    <InformationCircleOutline/>
+                  </n-icon>
+                </template>
+              </n-button>
+              <n-button
+                  secondary
+                  size="small"
+                  @click="handleSave"
+                  class="px-4 text-gray-300"
               >
                 <template #icon>
-                  <n-icon :component="PencilOutline" />
+                  <n-icon>
+                    <SaveOutline/>
+                  </n-icon>
                 </template>
+                Save
+              </n-button>
+              <n-button
+                  secondary
+                  size="small"
+                  @click="showEnvModal = true"
+                  class="px-2 text-gray-300"
+                  title="Environment Variables"
+              >
+                <template #icon>
+                  <n-icon>
+                    <ListOutline/>
+                  </n-icon>
+                </template>
+              </n-button>
+              <n-button
+                  secondary
+                  size="small"
+                  @click="showSettingsModal = true"
+                  class="px-2 text-gray-300"
+                  title="Global Settings"
+              >
+                <template #icon>
+                  <n-icon>
+                    <SettingsOutline/>
+                  </n-icon>
+                </template>
+              </n-button>
+              <n-button
+                  type="primary"
+                  size="small"
+                  :loading="store.isLoading"
+                  @click="handleRun"
+                  class="px-6"
+              >
+                <template #icon>
+                  <n-icon>
+                    <PlayOutline/>
+                  </n-icon>
+                </template>
+                Run
               </n-button>
             </div>
           </div>
-          
-          <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
-            <!-- Optional CaseBar -->
-            <CaseBar v-if="store.meta && store.meta.id" class="mb-3" />
 
-            <!-- URL Bar -->
-            <div class="mb-4">
-              <n-input-group>
-                <n-select
-                  v-model:value="store.request.method"
-                  :options="methodOptions"
-                  :style="{ width: '120px' }"
-                  @update:value="handleRequestBaseChange"
-                />
-                <n-input
-                  v-model:value="store.request.url"
-                  placeholder="https://api.example.com/v1/resource"
-                  @update:value="handleRequestBaseChange"
-                  class="flex-1"
-                />
-              </n-input-group>
+          <!-- Main Content Area -->
+          <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
+            <!-- Request Section (Top) -->
+            <div class="flex flex-col gap-2 min-h-0" :style="{ height: `${requestHeightPercent}%` }">
+              <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                  Request
+                  <span v-if="store.meta?.summary" class="ml-2 text-gray-400 normal-case font-sans truncate max-w-[300px]">
+                    {{ store.meta.summary }}
+                  </span>
+                  <n-button 
+                    v-if="store.currentFileName"
+                    text 
+                    size="tiny" 
+                    @click="showMetaModal = true" 
+                    class="ml-1 text-gray-600 hover:text-blue-400"
+                  >
+                    <template #icon>
+                      <n-icon :component="PencilOutline" />
+                    </template>
+                  </n-button>
+                </div>
+              </div>
+              
+              <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
+                <!-- Optional CaseBar -->
+                <CaseBar v-if="store.meta && store.meta.id" class="mb-3" />
+
+                <!-- URL Bar -->
+                <div class="mb-4">
+                  <n-input-group>
+                    <n-select
+                      v-model:value="store.request.method"
+                      :options="methodOptions"
+                      :style="{ width: '120px' }"
+                      @update:value="handleRequestBaseChange"
+                    />
+                    <n-input
+                      v-model:value="store.request.url"
+                      placeholder="https://api.example.com/v1/resource"
+                      @update:value="handleRequestBaseChange"
+                      class="flex-1"
+                    />
+                  </n-input-group>
+                </div>
+
+                <!-- Unified Request Tabs -->
+                <div v-if="store.request" class="flex-1 flex flex-col min-h-0">
+                  <n-tabs
+                    v-model:value="store.activeEditorTab"
+                    type="line"
+                    size="small"
+                    class="flex-1 flex flex-col overflow-hidden"
+                    display-directive="show"
+                    pane-style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
+                  >
+                    <!-- Tab 1: Path -->
+                    <n-tab-pane name="Path">
+                      <template #tab>
+                        <div class="flex items-center gap-1">
+                          Path
+                          <n-badge 
+                            :value="Object.keys(store.pathParams).length" 
+                            :show="Object.keys(store.pathParams).length > 0" 
+                            type="info"
+                            :offset="[4, -4]"
+                            size="small"
+                          />
+                        </div>
+                      </template>
+                      <div class="py-2 h-full overflow-auto">
+                        <PathVariablesEditor
+                          :url="store.request.url"
+                          v-model:modelValue="store.pathParams"
+                          :meta="store.meta"
+                        />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- Tab 2: Query -->
+                    <n-tab-pane name="Params" tab="Params">
+                      <div class="py-2 h-full overflow-auto">
+                        <QueryParamsEditor
+                          v-model:url="store.request.url"
+                          :meta="store.meta"
+                          @update:url="handleRequestBaseChange"
+                        />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- Tab 3: Headers -->
+                    <n-tab-pane name="Headers" tab="Headers">
+                      <div class="py-2 h-full overflow-auto">
+                        <HeadersEditor
+                          v-model:modelValue="store.request.headers"
+                          :meta="store.meta"
+                          @update:modelValue="handleRequestBaseChange"
+                        />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- Tab 3: Body -->
+                    <n-tab-pane name="Body" tab="Body">
+                      <div class="flex flex-col h-full pt-2 gap-2">
+                        <div class="flex justify-end px-1">
+                          <n-button size="tiny" secondary type="info" @click="formatBody">
+                            Format JSON
+                          </n-button>
+                        </div>
+                        <div class="flex-1 min-h-0">
+                          <CodeEditor
+                            :model-value="store.request.body"
+                            language="json"
+                            height="100%"
+                            @update:model-value="handleBodyChange"
+                          />
+                        </div>
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- Tab 4: Docs -->
+                    <n-tab-pane v-if="store.request.method !== 'GET'" name="Docs" tab="Docs">
+                      <div class="py-2 h-full overflow-auto">
+                        <BodyDocsViewer 
+                          :body-json="store.request.body" 
+                          :param-docs="store.meta?.param_docs || {}" 
+                        />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- Tab 5: Raw Curl -->
+                    <n-tab-pane name="Curl" tab="Curl">
+                      <div class="h-full pt-2 flex flex-col gap-2">
+                        <div class="flex justify-end px-1 gap-2">
+                          <n-button size="tiny" secondary type="success" @click="copyRealCurl">
+                            <template #icon>
+                              <n-icon><SaveOutline /></n-icon>
+                            </template>
+                            Copy with Env
+                          </n-button>
+                        </div>
+                        <n-alert v-if="possibleReplacement" type="info" show-icon class="mb-1">
+                          Detected values matching environment variables.
+                          <n-button size="tiny" type="primary" secondary @click="applyReplacement" class="ml-2">
+                            Replace with {{ envStore.activeEnvName }}
+                          </n-button>
+                        </n-alert>
+                        <CodeEditor
+                          :model-value="store.curlCode"
+                          language="shell"
+                          height="100%"
+                          @update:model-value="handleCurlChange"
+                        />
+                      </div>
+                    </n-tab-pane>
+                  </n-tabs>
+                </div>
+              </div>
             </div>
 
-            <!-- Unified Request Tabs -->
-            <div v-if="store.request" class="flex-1 flex flex-col min-h-0">
-              <n-tabs
-                v-model:value="store.activeEditorTab"
-                type="line"
-                size="small"
-                class="flex-1 flex flex-col overflow-hidden"
-                display-directive="show"
-                pane-style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
-              >
-                <!-- Tab 1: Path -->
-                <n-tab-pane name="Path">
-                  <template #tab>
-                    <div class="flex items-center gap-1">
-                      Path
-                      <n-badge 
-                        :value="Object.keys(store.pathParams).length" 
-                        :show="Object.keys(store.pathParams).length > 0" 
-                        type="info"
-                        :offset="[4, -4]"
-                        size="small"
-                      />
-                    </div>
-                  </template>
-                  <div class="py-2 h-full overflow-auto">
-                    <PathVariablesEditor
-                      :url="store.request.url"
-                      v-model:modelValue="store.pathParams"
-                      :meta="store.meta"
-                    />
-                  </div>
-                </n-tab-pane>
+            <!-- Resizer Handle -->
+            <div 
+              class="h-2 w-full hover:bg-blue-500/50 cursor-row-resize flex items-center justify-center group transition-colors my-1 shrink-0"
+              @mousedown="startDrag"
+            >
+              <div class="w-10 h-1 rounded-full bg-gray-700 group-hover:bg-blue-400 transition-colors"></div>
+            </div>
 
-                <!-- Tab 2: Query -->
-                <n-tab-pane name="Params" tab="Params">
-                  <div class="py-2 h-full overflow-auto">
-                    <QueryParamsEditor
-                      v-model:url="store.request.url"
-                      :meta="store.meta"
-                      @update:url="handleRequestBaseChange"
-                    />
-                  </div>
-                </n-tab-pane>
-
-                <!-- Tab 3: Headers -->
-                <n-tab-pane name="Headers" tab="Headers">
-                  <div class="py-2 h-full overflow-auto">
-                    <HeadersEditor
-                      v-model:modelValue="store.request.headers"
-                      :meta="store.meta"
-                      @update:modelValue="handleRequestBaseChange"
-                    />
-                  </div>
-                </n-tab-pane>
-
-                <!-- Tab 3: Body -->
-                <n-tab-pane name="Body" tab="Body">
-                  <div class="flex flex-col h-full pt-2 gap-2">
-                    <div class="flex justify-end px-1">
-                      <n-button size="tiny" secondary type="info" @click="formatBody">
-                        Format JSON
-                      </n-button>
-                    </div>
-                    <div class="flex-1 min-h-0">
-                      <CodeEditor
-                        :model-value="store.request.body"
-                        language="json"
-                        height="100%"
-                        @update:model-value="handleBodyChange"
-                      />
-                    </div>
-                  </div>
-                </n-tab-pane>
-
-                <!-- Tab 4: Docs -->
-                <n-tab-pane v-if="store.request.method !== 'GET'" name="Docs" tab="Docs">
-                  <div class="py-2 h-full overflow-auto">
-                    <BodyDocsViewer 
-                      :body-json="store.request.body" 
-                      :param-docs="store.meta?.param_docs || {}" 
-                    />
-                  </div>
-                </n-tab-pane>
-
-                <!-- Tab 5: Raw Curl -->
-                <n-tab-pane name="Curl" tab="Curl">
-                  <div class="h-full pt-2 flex flex-col gap-2">
-                    <div class="flex justify-end px-1 gap-2">
-                      <n-button size="tiny" secondary type="success" @click="copyRealCurl">
-                        <template #icon>
-                          <n-icon><SaveOutline /></n-icon>
-                        </template>
-                        Copy with Env
-                      </n-button>
-                    </div>
-                    <n-alert v-if="possibleReplacement" type="info" show-icon class="mb-1">
-                      Detected values matching environment variables.
-                      <n-button size="tiny" type="primary" secondary @click="applyReplacement" class="ml-2">
-                        Replace with {{ envStore.activeEnvName }}
-                      </n-button>
-                    </n-alert>
-                    <CodeEditor
-                      :model-value="store.curlCode"
-                      language="shell"
-                      height="100%"
-                      @update:model-value="handleCurlChange"
-                    />
-                  </div>
-                </n-tab-pane>
-              </n-tabs>
+            <!-- Response Section (Bottom) -->
+            <div class="flex-1 min-h-0 overflow-hidden mt-1">
+              <ResponsePanel class="h-full rounded-lg border border-gray-700/50" />
             </div>
           </div>
         </div>
-
-        <!-- Resizer Handle -->
-        <div 
-          class="h-2 w-full hover:bg-blue-500/50 cursor-row-resize flex items-center justify-center group transition-colors my-1 shrink-0"
-          @mousedown="startDrag"
-        >
-          <div class="w-10 h-1 rounded-full bg-gray-700 group-hover:bg-blue-400 transition-colors"></div>
-        </div>
-
-        <!-- Response Section (Bottom) -->
-        <div class="flex-1 min-h-0 overflow-hidden mt-1">
-          <ResponsePanel class="h-full rounded-lg border border-gray-700/50" />
-        </div>
-      </div>
-    </div>
+      </template>
+    </n-split>
 
     <!-- Modals -->
     <RequestMetaModal
@@ -564,5 +585,8 @@ onUnmounted(() => {
 }
 :deep(.n-tab-pane) {
   height: 100%;
+}
+.split-pane {
+  width: 100%;
 }
 </style>
