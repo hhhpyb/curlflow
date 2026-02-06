@@ -433,6 +433,9 @@ export const useRequestStore = defineStore('request', {
                     await this.syncToCurl();
                     // Clear previous response/errors when loading new file
                     this.response = new domain.HttpResponse();
+
+                    // Smart focus on the most relevant tab
+                    this.smartFocus();
                 }
             } catch (e) {
                 console.error(`Failed to load file ${filename}:`, e);
@@ -634,6 +637,31 @@ export const useRequestStore = defineStore('request', {
                 // @ts-ignore
                 if (window.$message) window.$message.error(`Delete Failed: ${e}`);
             }
+        },
+
+        /**
+         * Automatically switches to the most relevant tab based on the current request content.
+         */
+        smartFocus() {
+            const bodyMethods = ['POST', 'PUT', 'PATCH'];
+            const url = this.request.url || '';
+            const body = this.request.body || '';
+
+            // Priority 1: Body (for relevant methods and non-empty body)
+            if (bodyMethods.includes((this.request.method || 'GET').toUpperCase()) && body.trim().length > 0) {
+                this.activeEditorTab = 'Body';
+                return;
+            }
+
+            // Priority 2: Path Variables (if URL contains {variable})
+            if (url.includes('{') && url.includes('}')) {
+                this.activeEditorTab = 'Path';
+                return;
+            }
+
+            // Priority 3: Query Params (if URL contains ?) or Default
+            // Both lead to 'Params' tab
+            this.activeEditorTab = 'Params';
         },
 
         selectNextFile() {

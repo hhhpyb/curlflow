@@ -46,6 +46,7 @@ export const useHistoryStore = defineStore('history', {
             requestStore.currentFileName = ''; // Clear filename so "Save" triggers "Save As"
             requestStore.response = new domain.HttpResponse(); // Reset response
             requestStore.syncToCurl(); // Update Editor
+            requestStore.smartFocus(); // Smart switch tab
         },
         setupListeners() {
             // Listen for backend event
