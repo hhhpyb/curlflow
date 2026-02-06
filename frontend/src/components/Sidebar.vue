@@ -3,19 +3,81 @@ import { computed, ref } from 'vue';
 import { useRequestStore } from '../stores/request';
 import {
   NButton, NIcon, NScrollbar, NEmpty, NModal, NCard, NInput, NSpace,
-  useMessage, NCollapse, NCollapseItem, NBadge, NDivider, useDialog
+  useMessage, NCollapse, NCollapseItem, NBadge, NDivider, useDialog,
+  NDropdown
 } from 'naive-ui';
 import {
   FolderOpenOutline, DocumentTextOutline, AddOutline,
   CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline,
-  ChevronForwardOutline, ChevronDownOutline, FlaskOutline, TrashOutline
+  ChevronForwardOutline, ChevronDownOutline, FlaskOutline, TrashOutline,
+  CopyOutline, DuplicateOutline
 } from '@vicons/ionicons5';
+import { h, Component } from 'vue';
 
 const store = useRequestStore();
 const message = useMessage();
 const dialog = useDialog();
 
+// Context Menu State
+const showDropdown = ref(false);
+const x = ref(0);
+const y = ref(0);
+const dropdownTargetFile = ref('');
+
+const renderIcon = (icon: Component) => {
+  return () => h(NIcon, null, { default: () => h(icon) });
+};
+
+const dropdownOptions = [
+  {
+    label: 'Copy as cURL',
+    key: 'copy-curl',
+    icon: renderIcon(CopyOutline)
+  },
+  {
+    label: 'Duplicate',
+    key: 'duplicate',
+    icon: renderIcon(DuplicateOutline)
+  },
+  {
+    label: 'Delete',
+    key: 'delete',
+    icon: renderIcon(TrashOutline),
+    props: {
+      style: 'color: #e88080'
+    }
+  }
+];
+
+const handleContextMenu = (e: MouseEvent, fileName: string) => {
+  showDropdown.value = false;
+  nextTick().then(() => {
+    showDropdown.value = true;
+    x.value = e.clientX;
+    y.value = e.clientY;
+    dropdownTargetFile.value = fileName;
+  });
+};
+
+const handleSelect = (key: string) => {
+  showDropdown.value = false;
+  if (!dropdownTargetFile.value) return;
+
+  switch (key) {
+    case 'copy-curl':
+      store.copyCurlByFilename(dropdownTargetFile.value);
+      break;
+    case 'duplicate':
+      store.duplicateFile(dropdownTargetFile.value);
+      break;
+    case 'delete':
+      store.deleteFileByFilename(dropdownTargetFile.value);
+      break;
+  }
+};
+
 // Sync Modal State
+import { nextTick } from 'vue';
 const showSyncModal = ref(false);
 const isSyncing = ref(false);
 
@@ -172,6 +234,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                         ? 'bg-blue-500/10 text-blue-400 border-blue-500'
                         : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
                     ]"
+                    @contextmenu.prevent="handleContextMenu($event, node.mainFile.fileName)"
                   >
                     <!-- Expand Icon for Cases -->
                     <div 
@@ -204,6 +267,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                       v-for="child in node.children"
                       :key="child.fileName"
                       @click="store.loadFrom(child.fileName)"
+                      @contextmenu.prevent="handleContextMenu($event, child.fileName)"
                       class="flex items-center px-2 py-1 cursor-pointer rounded transition-colors"
                       :class="[
                         store.currentFileName === child.fileName
@@ -288,6 +352,18 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
         </n-space>
       </n-card>
     </n-modal>
+
+    <!-- Context Menu -->
+    <n-dropdown
+      placement="bottom-start"
+      trigger="manual"
+      :x="x"
+      :y="y"
+      :options="dropdownOptions"
+      :show="showDropdown"
+      :on-clickoutside="() => showDropdown = false"
+      @select="handleSelect"
+    />
   </div>
 </template>
 

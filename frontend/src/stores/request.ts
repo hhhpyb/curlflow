@@ -487,28 +487,6 @@ export const useRequestStore = defineStore('request', {
             }
         },
 
-        async deleteCurrentFile() {
-            if (!this.workDir || !this.currentFileName) return;
-
-            try {
-                await DeleteFile(this.workDir, this.currentFileName);
-                
-                const deletedName = this.currentFileName;
-                const alternatives = this.relatedCases.filter(f => f.fileName !== deletedName);
-                
-                await this.fetchFiles();
-
-                if (alternatives.length > 0) {
-                    await this.loadFrom(alternatives[0].fileName);
-                } else {
-                    this.createNewRequest();
-                }
-            } catch (e) {
-                console.error('Failed to delete file:', e);
-                throw e;
-            }
-        },
-
         async loadProjectConfig() {
             if (!this.workDir) return;
             try {
@@ -530,6 +508,7 @@ export const useRequestStore = defineStore('request', {
                 console.error('Failed to save project config:', e);
             }
         },
+
 
         async purgeDeleted() {
             if (!this.workDir) return;
@@ -560,6 +539,75 @@ export const useRequestStore = defineStore('request', {
                 this.envConfig = config || { activeEnvName: '', environments: {} };
             } catch (e) {
                 console.error('Failed to load env config:', e);
+            }
+        },
+
+        async duplicateFile(fileName: string) {
+            if (!this.workDir) return;
+            try {
+                const res = await LoadRequest(this.workDir, fileName) as any;
+                if (res) {
+                    const baseName = fileName.replace(/\.json$/i, '');
+                    const newFileName = `${baseName}_copy.json`;
+
+                    const newReqFile = {
+                        _meta: {
+                            ...res._meta,
+                            id: crypto.randomUUID(),
+                            summary: (res._meta.summary || baseName) + ' - Copy'
+                        },
+                        data: res.data
+                    };
+
+                    await SaveFullRequest(this.workDir, newFileName, newReqFile as any);
+                    await this.fetchFiles();
+
+                    // @ts-ignore
+                    if (window.$message) window.$message.success('File duplicated');
+                }
+            } catch (e) {
+                console.error('Failed to duplicate file:', e);
+                // @ts-ignore
+                if (window.$message) window.$message.error(`Duplicate Failed: ${e}`);
+            }
+        },
+
+        async copyCurlByFilename(fileName: string) {
+            if (!this.workDir) return;
+            try {
+                const res = await LoadRequest(this.workDir, fileName) as any;
+                if (res && res.data) {
+                    const curl = await BuildCurl(res.data);
+                    await navigator.clipboard.writeText(curl);
+                    // @ts-ignore
+                    if (window.$message) window.$message.success('Copied to clipboard');
+                }
+            } catch (e) {
+                console.error('Failed to copy curl:', e);
+                // @ts-ignore
+                if (window.$message) window.$message.error('Failed to copy to clipboard');
+            }
+        },
+
+        async deleteFileByFilename(fileName?: string) {
+            const target = fileName || this.currentFileName;
+            if (!target || !this.workDir) return;
+
+            try {
+                await DeleteFile(this.workDir, target);
+
+                // If the deleted file is the current one, clear the editor
+                if (target === this.currentFileName) {
+                    this.createNewRequest();
+                }
+
+                await this.fetchFiles();
+                // @ts-ignore
+                if (window.$message) window.$message.success('File marked as deleted');
+            } catch (e) {
+                console.error('Failed to delete file:', e);
+                // @ts-ignore
+                if (window.$message) window.$message.error(`Delete Failed: ${e}`);
             }
         }
     },
