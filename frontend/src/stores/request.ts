@@ -86,6 +86,7 @@ export const useRequestStore = defineStore('request', {
         // Search and View settings
         searchKeyword: '',
         showDeleted: false,
+        activeEditorTab: 'Params',
     }),
     getters: {
         /**
@@ -93,6 +94,7 @@ export const useRequestStore = defineStore('request', {
          * Returns: Record<FolderName, InterfaceNode[]>
          */
         fileTree(state): Record<string, InterfaceNode[]> {
+            // ... (existing implementation)
             // 1. Initial Filtering
             const filtered = state.fileList.filter(item => {
                 if (!state.showDeleted && item.meta.status === 'deleted') return false;
@@ -120,7 +122,7 @@ export const useRequestStore = defineStore('request', {
             const tree: Record<string, InterfaceNode[]> = {};
 
             Object.values(groups).forEach(group => {
-                // Sort by filename length to find the "Main" file (usually shortest, e.g., "get_user.json" vs "get_user_case_1.json")
+                // Sort by filename length to find the "Main" file
                 group.sort((a, b) => a.fileName.length - b.fileName.length);
                 
                 const mainFile = group[0];
@@ -138,7 +140,7 @@ export const useRequestStore = defineStore('request', {
                 });
             });
 
-            // Sort interfaces within each tag by summary or filename
+            // Sort interfaces within each tag
             Object.keys(tree).forEach(tag => {
                 tree[tag].sort((a, b) => {
                     const labelA = a.mainFile.meta.summary || a.mainFile.fileName;
@@ -148,6 +150,28 @@ export const useRequestStore = defineStore('request', {
             });
 
             return tree;
+        },
+
+        /**
+         * Returns a flat list of files following the visual order in the sidebar.
+         */
+        flatFileList(): storage.FileSummary[] {
+            const tree = this.fileTree;
+            const flat: storage.FileSummary[] = [];
+            
+            // Sort tags alphabetically, with 'Uncategorized' usually at the end or following sort
+            const sortedTags = Object.keys(tree).sort();
+
+            sortedTags.forEach(tag => {
+                tree[tag].forEach(node => {
+                    flat.push(node.mainFile);
+                    node.children.forEach(child => {
+                        flat.push(child);
+                    });
+                });
+            });
+
+            return flat;
         },
 
         /**
@@ -609,6 +633,32 @@ export const useRequestStore = defineStore('request', {
                 // @ts-ignore
                 if (window.$message) window.$message.error(`Delete Failed: ${e}`);
             }
+        },
+
+        selectNextFile() {
+            const list = this.flatFileList;
+            if (list.length === 0) return;
+
+            const currentIndex = list.findIndex(f => f.fileName === this.currentFileName);
+            let nextIndex = 0;
+            if (currentIndex !== -1) {
+                nextIndex = (currentIndex + 1) % list.length;
+            }
+            
+            this.loadFrom(list[nextIndex].fileName);
+        },
+
+        selectPrevFile() {
+            const list = this.flatFileList;
+            if (list.length === 0) return;
+
+            const currentIndex = list.findIndex(f => f.fileName === this.currentFileName);
+            let prevIndex = list.length - 1;
+            if (currentIndex !== -1) {
+                prevIndex = (currentIndex - 1 + list.length) % list.length;
+            }
+
+            this.loadFrom(list[prevIndex].fileName);
         }
     },
 });

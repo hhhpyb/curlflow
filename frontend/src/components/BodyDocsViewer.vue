@@ -175,6 +175,7 @@ watch(
   <div class="body-docs-viewer h-full flex flex-col">
     <div class="mb-2">
       <n-input
+        id="docs-search-input"
         v-model:value="searchKeyword"
         placeholder="Search field or description..."
         clearable

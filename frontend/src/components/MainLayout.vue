@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
-import {useMessage, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge} from 'naive-ui'
+import {useMessage, useDialog, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge} from 'naive-ui'
 import {
   CloudDownloadOutline,
   PlayOutline,
@@ -26,7 +26,9 @@ import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
 
 const message = useMessage()
+const dialog = useDialog()
 window.$message = message
+window.$dialog = dialog
 const store = useRequestStore()
 const envStore = useEnvStore()
 const settingsStore = useSettingsStore()
@@ -416,6 +418,7 @@ onUnmounted(() => {
             <!-- Unified Request Tabs -->
             <div v-if="store.request" class="flex-1 flex flex-col min-h-0">
               <n-tabs
+                v-model:value="store.activeEditorTab"
                 type="line"
                 size="small"
                 class="flex-1 flex flex-col overflow-hidden"
@@ -423,7 +426,7 @@ onUnmounted(() => {
                 pane-style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
               >
                 <!-- Tab 1: Path -->
-                <n-tab-pane name="path">
+                <n-tab-pane name="Path">
                   <template #tab>
                     <div class="flex items-center gap-1">
                       Path
@@ -446,7 +449,7 @@ onUnmounted(() => {
                 </n-tab-pane>
 
                 <!-- Tab 2: Query -->
-                <n-tab-pane name="query" tab="Query">
+                <n-tab-pane name="Params" tab="Params">
                   <div class="py-2 h-full overflow-auto">
                     <QueryParamsEditor
                       v-model:url="store.request.url"
@@ -457,7 +460,7 @@ onUnmounted(() => {
                 </n-tab-pane>
 
                 <!-- Tab 3: Headers -->
-                <n-tab-pane name="headers" tab="Headers">
+                <n-tab-pane name="Headers" tab="Headers">
                   <div class="py-2 h-full overflow-auto">
                     <HeadersEditor
                       v-model:modelValue="store.request.headers"
@@ -468,7 +471,7 @@ onUnmounted(() => {
                 </n-tab-pane>
 
                 <!-- Tab 3: Body -->
-                <n-tab-pane name="body" tab="Body">
+                <n-tab-pane name="Body" tab="Body">
                   <div class="flex flex-col h-full pt-2 gap-2">
                     <div class="flex justify-end px-1">
                       <n-button size="tiny" secondary type="info" @click="formatBody">
@@ -487,7 +490,7 @@ onUnmounted(() => {
                 </n-tab-pane>
 
                 <!-- Tab 4: Docs -->
-                <n-tab-pane v-if="store.request.method !== 'GET'" name="docs" tab="Docs">
+                <n-tab-pane v-if="store.request.method !== 'GET'" name="Docs" tab="Docs">
                   <div class="py-2 h-full overflow-auto">
                     <BodyDocsViewer 
                       :body-json="store.request.body" 
@@ -497,7 +500,7 @@ onUnmounted(() => {
                 </n-tab-pane>
 
                 <!-- Tab 5: Raw Curl -->
-                <n-tab-pane name="curl" tab="Raw Curl">
+                <n-tab-pane name="Curl" tab="Curl">
                   <div class="h-full pt-2 flex flex-col gap-2">
                     <div class="flex justify-end px-1 gap-2">
                       <n-button size="tiny" secondary type="success" @click="copyRealCurl">

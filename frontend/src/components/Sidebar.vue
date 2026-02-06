@@ -35,12 +35,12 @@ const dropdownOptions = [
     icon: renderIcon(CopyOutline)
   },
   {
-    label: 'Duplicate',
+    label: 'Duplicate (⌘ + D)',
     key: 'duplicate',
     icon: renderIcon(DuplicateOutline)
   },
   {
-    label: 'Delete',
+    label: 'Delete  (⌘ + Delete)',
     key: 'delete',
     icon: renderIcon(TrashOutline),
     props: {
@@ -182,6 +182,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
 
       <div class="flex items-center gap-1">
         <n-input
+          id="sidebar-search-input"
           v-model:value="store.searchKeyword"
           size="small"
           placeholder="Search..."
@@ -228,6 +229,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                 <!-- Level 2: Interface Node -->
                 <div v-for="node in nodes" :key="node.mainFile.fileName" class="interface-group">
                   <div
+                    :id="'file-item-' + node.mainFile.fileName"
                     class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-colors duration-150 rounded border-l-2"
                     :class="[
                       store.currentFileName === node.mainFile.fileName
@@ -266,6 +268,7 @@ const getCaseLabel = (fileName: string, mainFileName: string) => {
                     <div
                       v-for="child in node.children"
                       :key="child.fileName"
+                      :id="'file-item-' + child.fileName"
                       @click="store.loadFrom(child.fileName)"
                       @contextmenu.prevent="handleContextMenu($event, child.fileName)"
                       class="flex items-center px-2 py-1 cursor-pointer rounded transition-colors"
