@@ -32,7 +32,7 @@ jobs:
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-bin
+          name: curlflow-windows
           path: build/bin/${{ env.APP_NAME }}.exe
 
   # === 2. 构建 Linux 版本 (Ubuntu) ===
@@ -61,7 +61,7 @@ jobs:
       - name: Upload Linux Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-bin
+          name: curlflow-linux
           path: build/bin/${{ env.APP_NAME }}
 
   # === 3. 构建 macOS 版本 ===
@@ -88,21 +88,33 @@ jobs:
           echo "Listing build/bin contents for debugging:"
           ls -R build/bin
           
-          # 动态查找 .app 文件，避免路径或名称不匹配问题
+          # 动态查找 .app 文件
           APP_PATH=$(find build/bin -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
             echo "::error::No .app bundle found in build/bin!"
             exit 1
           fi
+          APP_FILENAME=$(basename "$APP_PATH")
           echo "Found app at: $APP_PATH"
           
-          # 使用 macOS 原生工具 hdiutil 生成 DMG
-          hdiutil create -volname "${{ env.APP_NAME }}" -srcfolder "$APP_PATH" -ov -format UDZO "build/bin/${{ env.APP_NAME }}-mac-universal.dmg"
+          # 准备一个临时目录来构建 DMG 内容
+          DMG_TMP="dmg_temp"
+          mkdir -p "$DMG_TMP"
+          cp -R "$APP_PATH" "$DMG_TMP/"
+          
+          # 创建指向 /Applications 的软链接，实现拖拽安装
+          ln -s /Applications "$DMG_TMP/Applications"
+          
+          # 使用 hdiutil 生成 DMG
+          hdiutil create -volname "${{ env.APP_NAME }}" -srcfolder "$DMG_TMP" -ov -format UDZO "build/bin/${{ env.APP_NAME }}-mac-universal.dmg"
+          
+          # 清理临时目录
+          rm -rf "$DMG_TMP"
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-bin
+          name: curlflow-macos
           path: build/bin/${{ env.APP_NAME }}-mac-universal.dmg
 
   # === 4. 发布 Release ===
@@ -119,8 +131,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            windows-bin/${{ env.APP_NAME }}.exe
-            linux-bin/${{ env.APP_NAME }}
-            macos-bin/${{ env.APP_NAME }}-mac-universal.dmg
+            curlflow-windows/${{ env.APP_NAME }}.exe
+            curlflow-linux/${{ env.APP_NAME }}
+            curlflow-macos/${{ env.APP_NAME }}-mac-universal.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
