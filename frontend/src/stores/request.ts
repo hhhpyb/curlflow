@@ -246,7 +246,7 @@ export const useRequestStore = defineStore('request', {
                 console.log('--- Debug: Final Request Object (After Path Params) ---');
                 console.log(finalRequest);
                 
-                const res = await SendRequest(finalRequest);
+                const res = await SendRequest(finalRequest, this.workDir);
                 this.response = res;
             } catch (e) {
                 console.error('Request failed:', e);

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"curlflow/internal/domain"
+	"curlflow/internal/history"
 	"curlflow/internal/parser"
 	"curlflow/internal/runner"
 	"curlflow/internal/storage"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // App struct
@@ -21,6 +23,7 @@ type App struct {
 	runner  *runner.Service
 	storage *storage.Service
 	syncer  *syncer.Service
+	history *history.Service
 }
 
 // AppConfig holds global application settings
@@ -37,6 +40,7 @@ func NewApp() *App {
 		runner:  runner.NewService(),
 		storage: storageService,
 		syncer:  syncer.NewService(storageService),
+		history: history.NewService(),
 	}
 }
 
@@ -69,8 +73,41 @@ func (a *App) BuildCurl(req domain.HttpRequest) string {
 }
 
 // SendRequest executes the HTTP request
-func (a *App) SendRequest(req domain.HttpRequest) domain.HttpResponse {
+// Note: workDir is now required to save history
+func (a *App) SendRequest(req domain.HttpRequest, workDir string) domain.HttpResponse {
+	// Async save to history
+	if workDir != "" {
+		go func() {
+			err := a.history.Add(workDir, req)
+			if err != nil {
+				fmt.Printf("Failed to save history: %v\n", err)
+			} else {
+				// Emit event to frontend to refresh history list
+				runtime.EventsEmit(a.ctx, "history_updated")
+			}
+		}()
+	}
+
 	return a.runner.SendRequest(req)
+}
+
+// GetHistoryList returns the history for the current working directory
+func (a *App) GetHistoryList(workDir string) []history.HistoryEntry {
+	list, err := a.history.List(workDir)
+	if err != nil {
+		fmt.Printf("GetHistoryList error: %v\n", err)
+		return []history.HistoryEntry{}
+	}
+	return list
+}
+
+// ClearHistory clears the history for the current working directory
+func (a *App) ClearHistory(workDir string) string {
+	err := a.history.Clear(workDir)
+	if err != nil {
+		return fmt.Sprintf("Error clearing history: %v", err)
+	}
+	return "success"
 }
 
 // SelectWorkDir opens a directory selection dialog

@@ -6,6 +6,10 @@ export function BuildCurl(arg1) {
   return window['go']['main']['App']['BuildCurl'](arg1);
 }
 
+export function ClearHistory(arg1) {
+  return window['go']['main']['App']['ClearHistory'](arg1);
+}
+
 export function DeleteFile(arg1, arg2) {
   return window['go']['main']['App']['DeleteFile'](arg1, arg2);
 }
@@ -20,6 +24,10 @@ export function GetFileList(arg1) {
 
 export function GetFileSummaries(arg1) {
   return window['go']['main']['App']['GetFileSummaries'](arg1);
+}
+
+export function GetHistoryList(arg1) {
+  return window['go']['main']['App']['GetHistoryList'](arg1);
 }
 
 export function GetProjectConfig(arg1) {
@@ -70,8 +78,8 @@ export function SelectWorkDir() {
   return window['go']['main']['App']['SelectWorkDir']();
 }
 
-export function SendRequest(arg1) {
-  return window['go']['main']['App']['SendRequest'](arg1);
+export function SendRequest(arg1, arg2) {
+  return window['go']['main']['App']['SendRequest'](arg1, arg2);
 }
 
 export function SyncSwagger(arg1, arg2) {
