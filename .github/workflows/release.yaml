@@ -37,7 +37,7 @@ jobs:
 
   # === 2. 构建 Linux 版本 (Ubuntu) ===
   build-linux:
-    runs-on: ubuntu-20.04 # 使用较旧版本以保证 glibc 兼容性
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
