@@ -249,7 +249,7 @@ func (s *Service) generateBody(op *openapi3.Operation, paramDocs map[string]stri
 	s.collectPropertyDocs("body", schema, paramDocs, 0)
 
 	// Convert schema to JSON (with depth limit)
-	data := s.schemaToJSON(schema, 0)
+	data := s.schemaToJSON("", schema, 0)
 	if data == nil {
 		return "{}"
 	}
@@ -278,7 +278,7 @@ func (s *Service) collectPropertyDocs(prefix string, schema *openapi3.Schema, do
 	}
 }
 
-func (s *Service) schemaToJSON(schema *openapi3.Schema, depth int) interface{} {
+func (s *Service) schemaToJSON(propName string, schema *openapi3.Schema, depth int) interface{} {
 	if schema == nil || depth > 10 {
 		if depth > 10 {
 			return "<max depth reached>"
@@ -286,7 +286,7 @@ func (s *Service) schemaToJSON(schema *openapi3.Schema, depth int) interface{} {
 		return nil
 	}
 
-	// Use Example or Default if available
+	// 1. Schema Example & Default (Highest Priority)
 	if schema.Example != nil {
 		return schema.Example
 	}
@@ -300,31 +300,91 @@ func (s *Service) schemaToJSON(schema *openapi3.Schema, depth int) interface{} {
 		schemaType = (*schema.Type)[0]
 	}
 
+	lowerName := strings.ToLower(propName)
+
 	switch schemaType {
 	case openapi3.TypeObject:
 		obj := make(map[string]interface{})
 		for name, propRef := range schema.Properties {
 			if propRef.Value != nil {
-				obj[name] = s.schemaToJSON(propRef.Value, depth+1)
+				obj[name] = s.schemaToJSON(name, propRef.Value, depth+1)
 			}
 		}
 		return obj
 	case openapi3.TypeArray:
 		if schema.Items != nil && schema.Items.Value != nil {
-			return []interface{}{s.schemaToJSON(schema.Items.Value, depth+1)}
+			// Pass empty name for array items as they don't have individual keys
+			return []interface{}{s.schemaToJSON("", schema.Items.Value, depth+1)}
 		}
 		return []interface{}{}
 	case openapi3.TypeString:
+		// 2. Format
 		if schema.Format == "date-time" {
-			return time.Now().Format(time.RFC3339)
+			return time.Now().Format("2006-01-02 15:04:05")
 		}
+		if schema.Format == "date" {
+			return time.Now().Format("2006-01-02")
+		}
+		if schema.Format == "email" {
+			return "example@test.com"
+		}
+		if schema.Format == "uuid" {
+			return "550e8400-e29b-41d4-a716-446655440000"
+		}
+		if schema.Format == "uri" || schema.Format == "url" {
+			return "https://example.com"
+		}
+
+		// 3. Name Heuristics (String)
+		if strings.Contains(lowerName, "time") || strings.Contains(lowerName, "date") || strings.Contains(lowerName, "at") {
+			return "2024-01-01 12:00:00"
+		}
+		if strings.Contains(lowerName, "id") || strings.Contains(lowerName, "code") || strings.Contains(lowerName, "no") {
+			return "1001"
+		}
+		if strings.Contains(lowerName, "name") || strings.Contains(lowerName, "user") {
+			return "John Doe"
+		}
+		if strings.Contains(lowerName, "status") || strings.Contains(lowerName, "type") || strings.Contains(lowerName, "state") {
+			return "ACTIVE"
+		}
+		if strings.Contains(lowerName, "desc") || strings.Contains(lowerName, "remark") || strings.Contains(lowerName, "content") {
+			return "测试内容..."
+		}
+		if strings.Contains(lowerName, "phone") || strings.Contains(lowerName, "mobile") {
+			return "13800138000"
+		}
+		if strings.Contains(lowerName, "ip") {
+			return "127.0.0.1"
+		}
+
+		// 4. Fallback
 		if len(schema.Enum) > 0 {
 			return schema.Enum[0]
 		}
-		return "<string>"
+		return "" // Empty string instead of "<string>"
+
 	case openapi3.TypeInteger, openapi3.TypeNumber:
+		// 3. Name Heuristics (Number)
+		if strings.Contains(lowerName, "price") || strings.Contains(lowerName, "cost") ||
+			strings.Contains(lowerName, "salary") || strings.Contains(lowerName, "amount") {
+			return 1000.00
+		}
+		if strings.Contains(lowerName, "id") || strings.Contains(lowerName, "code") || strings.Contains(lowerName, "no") {
+			return 1
+		}
+		if strings.Contains(lowerName, "status") || strings.Contains(lowerName, "type") || strings.Contains(lowerName, "state") {
+			return 1
+		}
+		// 4. Fallback
 		return 0
+
 	case openapi3.TypeBoolean:
+		// 3. Name Heuristics (Boolean)
+		if strings.Contains(lowerName, "is") || strings.Contains(lowerName, "has") || strings.Contains(lowerName, "enable") {
+			return true
+		}
+		// 4. Fallback
 		return false
 	default:
 		return nil
