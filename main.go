@@ -2,6 +2,9 @@ package main
 
 import (
 	"embed"
+	"fmt"
+	"os"
+	"time"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -51,6 +54,12 @@ func main() {
 		})
 
 		if err != nil {
+			// Log error to file since GUI apps don't have stdout/stderr on Windows
+			f, _ := os.OpenFile("startup_error.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if f != nil {
+				defer f.Close()
+				f.WriteString(fmt.Sprintf("%s - Error: %s\n", time.Now().Format(time.RFC3339), err.Error()))
+			}
 			println("Error:", err.Error())
 		}
 	}
