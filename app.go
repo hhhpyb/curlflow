@@ -5,6 +5,7 @@ import (
 	"curlflow/internal/domain"
 	"curlflow/internal/history"
 	"curlflow/internal/parser"
+	"curlflow/internal/project"
 	"curlflow/internal/runner"
 	"curlflow/internal/storage"
 	"curlflow/internal/syncer"
@@ -24,6 +25,7 @@ type App struct {
 	storage *storage.Service
 	syncer  *syncer.Service
 	history *history.Service
+	project *project.Service
 }
 
 // AppConfig holds global application settings
@@ -41,6 +43,7 @@ func NewApp() *App {
 		storage: storageService,
 		syncer:  syncer.NewService(storageService),
 		history: history.NewService(),
+		project: project.NewService(),
 	}
 }
 
@@ -55,6 +58,24 @@ func (a *App) startup(ctx context.Context) {
 		Insecure: cfg.Insecure,
 		Timeout:  cfg.Timeout,
 	})
+
+	// Auto-load last project
+	lastProject := a.project.GetLastOpened()
+	if lastProject != "" {
+		// Emit event to frontend to set workDir
+		// We use a slight delay or just emit. Frontend listens for this?
+		// Actually, frontend calls init() which checks localStorage.
+		// We should probably rely on the frontend asking "GetLastOpened" OR
+		// just let the frontend know via event.
+		//
+		// Better approach: Since frontend currently uses localStorage ('curlflow_workDir'),
+		// we can keep that for now, OR we can override it if we want the backend to be the source of truth.
+		// Let's defer to the user's request: "App starts, prioritize last_opened_path".
+
+		// Note: We cannot easily "push" to frontend before frontend is ready.
+		// Wails 'domready' event is when frontend is ready.
+		// Instead, we will expose a method GetLastOpenedProject() and let frontend call it in init().
+	}
 }
 
 // ParseCurl parses a curl command string into a HttpRequest struct
@@ -116,6 +137,9 @@ func (a *App) SelectWorkDir() string {
 	if err != nil {
 		fmt.Printf("SelectWorkDir error: %v\n", err)
 		return ""
+	}
+	if dir != "" {
+		a.project.AddProject(dir)
 	}
 	return dir
 }
@@ -343,4 +367,24 @@ func (a *App) SaveSettings(cfg AppConfig) string {
 	})
 
 	return "success"
+}
+
+// GetRecentProjects returns the list of recently opened projects
+func (a *App) GetRecentProjects() []string {
+	return a.project.GetRecentProjects()
+}
+
+// RemoveProject removes a project from the recent list
+func (a *App) RemoveProject(path string) {
+	a.project.RemoveProject(path)
+}
+
+// OpenProject explicitly adds a path to the recent list (used when switching projects from UI)
+func (a *App) OpenProject(path string) {
+	a.project.AddProject(path)
+}
+
+// GetLastOpenedProject returns the last opened project path
+func (a *App) GetLastOpenedProject() string {
+	return a.project.GetLastOpened()
 }

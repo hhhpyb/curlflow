@@ -30,8 +30,16 @@ export function GetHistoryList(arg1) {
   return window['go']['main']['App']['GetHistoryList'](arg1);
 }
 
+export function GetLastOpenedProject() {
+  return window['go']['main']['App']['GetLastOpenedProject']();
+}
+
 export function GetProjectConfig(arg1) {
   return window['go']['main']['App']['GetProjectConfig'](arg1);
+}
+
+export function GetRecentProjects() {
+  return window['go']['main']['App']['GetRecentProjects']();
 }
 
 export function GetSettings() {
@@ -46,12 +54,20 @@ export function LoadRequest(arg1, arg2) {
   return window['go']['main']['App']['LoadRequest'](arg1, arg2);
 }
 
+export function OpenProject(arg1) {
+  return window['go']['main']['App']['OpenProject'](arg1);
+}
+
 export function ParseCurl(arg1) {
   return window['go']['main']['App']['ParseCurl'](arg1);
 }
 
 export function PurgeDeletedFiles(arg1) {
   return window['go']['main']['App']['PurgeDeletedFiles'](arg1);
+}
+
+export function RemoveProject(arg1) {
+  return window['go']['main']['App']['RemoveProject'](arg1);
 }
 
 export function SaveConfig(arg1, arg2, arg3) {

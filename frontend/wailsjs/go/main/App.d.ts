@@ -19,7 +19,11 @@ export function GetFileSummaries(arg1:string):Promise<Array<storage.FileSummary>
 
 export function GetHistoryList(arg1:string):Promise<Array<history.HistoryEntry>>;
 
+export function GetLastOpenedProject():Promise<string>;
+
 export function GetProjectConfig(arg1:string):Promise<storage.ProjectConfig>;
+
+export function GetRecentProjects():Promise<Array<string>>;
 
 export function GetSettings():Promise<main.AppConfig>;
 
@@ -27,9 +31,13 @@ export function LoadConfig(arg1:string,arg2:string):Promise<string>;
 
 export function LoadRequest(arg1:string,arg2:string):Promise<domain.RequestFile>;
 
+export function OpenProject(arg1:string):Promise<void>;
+
 export function ParseCurl(arg1:string):Promise<domain.HttpRequest>;
 
 export function PurgeDeletedFiles(arg1:string):Promise<string>;
+
+export function RemoveProject(arg1:string):Promise<void>;
 
 export function SaveConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 

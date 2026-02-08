@@ -7,11 +7,13 @@ import {
   useMessage, NCollapse, NCollapseItem, NBadge, NDivider, useDialog,
   NDropdown, NTag
 } from 'naive-ui';
+import type { DropdownOption } from 'naive-ui';
+import { GetRecentProjects, RemoveProject } from '../../wailsjs/go/main/App';
 import {
   FolderOpenOutline, DocumentTextOutline, AddOutline,
   CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline,
   ChevronForwardOutline, ChevronDownOutline, FlaskOutline, TrashOutline,
-  CopyOutline, DuplicateOutline, TimeOutline, FolderOutline
+  CopyOutline, DuplicateOutline, TimeOutline, FolderOutline, CheckmarkOutline, CloseOutline
 } from '@vicons/ionicons5';
 
 const store = useRequestStore();
@@ -22,9 +24,100 @@ const dialog = useDialog();
 // Sidebar View Mode: 'collections' | 'history'
 const activeView = ref<'collections' | 'history'>('collections');
 
+// ==========================================
+// Project Management Logic
+// ==========================================
+const recentProjects = ref<string[]>([]);
+
+const fetchRecentProjects = async () => {
+  try {
+    const list = await GetRecentProjects();
+    recentProjects.value = list || [];
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const handleRemoveProject = async (path: string, e: Event) => {
+  e.stopPropagation();
+  try {
+    await RemoveProject(path);
+    await fetchRecentProjects();
+    message.success('Project removed from history');
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const projectOptions = computed<DropdownOption[]>(() => {
+  const options: DropdownOption[] = recentProjects.value.map(path => {
+    const name = path.split(/[\\/]/).pop() || path;
+    const isCurrent = store.workDir === path;
+    
+    return {
+      key: path,
+      label: () => h('div', { 
+        class: 'flex items-center justify-between w-full min-w-[300px] py-1 group/item',
+      }, [
+        h('div', { class: 'flex items-center gap-3 flex-1 min-w-0' }, [
+          // Checkmark or Placeholder
+          isCurrent 
+            ? h(NIcon, { component: CheckmarkOutline, class: 'text-blue-500 shrink-0', size: '16' }) 
+            : h('div', { class: 'w-4 shrink-0' }),
+          
+          // Text Content
+          h('div', { class: 'flex flex-col min-w-0 flex-1 leading-tight' }, [
+            h('span', { class: 'text-[13px] font-semibold truncate text-gray-200' }, name),
+            h('span', { class: 'text-[10px] text-gray-500 truncate mt-0.5 font-mono opacity-80' }, path),
+          ])
+        ]),
+
+        // Actions container with fixed width to prevent overlap
+        h('div', { class: 'w-8 flex justify-end shrink-0 ml-2' }, [
+          h(NButton, { 
+            text: true, 
+            size: 'tiny',
+            class: 'opacity-0 group-hover/item:opacity-100 transition-opacity hover:text-red-400 text-gray-500 p-1',
+            onClick: (e: MouseEvent) => {
+              e.stopPropagation();
+              handleRemoveProject(path, e);
+            }
+          }, { icon: () => h(NIcon, { component: CloseOutline, size: '14' }) })
+        ])
+      ])
+    };
+  });
+
+  // Divider
+  if (options.length > 0) {
+    options.push({ type: 'divider', key: 'd1' });
+  }
+
+  // Open New Option
+  options.push({
+    label: 'Open Folder...',
+    key: 'open-folder',
+    icon: renderIcon(FolderOpenOutline)
+  });
+
+  return options;
+});
+
+const handleProjectSelect = async (key: string) => {
+  if (key === 'open-folder') {
+    await store.chooseDir();
+    await fetchRecentProjects(); // Refresh list after picking
+  } else {
+    // Switch project
+    await store.openProject(key);
+    await fetchRecentProjects(); // Refresh list (move to top)
+  }
+};
+
 onMounted(() => {
   // Setup event listeners for history
   historyStore.setupListeners();
+  fetchRecentProjects(); // Load projects on mount
 });
 
 // Watch for workDir changes to load history
@@ -255,16 +348,22 @@ const getMethodClass = (method: string) => {
       <!-- View: Collections (File Tree) -->
       <div v-if="activeView === 'collections'" class="flex flex-col h-full w-full">
         <!-- Header -->
-        <div class="header flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
-          <span class="text-xs font-bold uppercase tracking-wider truncate flex-1 mr-2 text-gray-400" :title="store.workDir">
-            {{ folderName }}
-          </span>
-          <n-button text @click="store.chooseDir" class="text-gray-400 hover:text-white">
-            <template #icon>
-              <n-icon :component="FolderOpenOutline" />
-            </template>
-          </n-button>
-        </div>
+        <n-dropdown 
+          trigger="click" 
+          :options="projectOptions" 
+          @select="handleProjectSelect" 
+          placement="bottom-start"
+          class="bg-gray-800 border border-gray-700"
+        >
+          <div class="header flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors group">
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <span class="text-xs font-bold uppercase tracking-wider truncate text-gray-300 group-hover:text-white" :title="store.workDir">
+                {{ folderName }}
+              </span>
+              <n-icon :component="ChevronDownOutline" size="12" class="text-gray-500 group-hover:text-gray-300" />
+            </div>
+          </div>
+        </n-dropdown>
 
         <!-- Actions & Search -->
         <div class="p-2 border-b border-gray-800/50 shrink-0 flex flex-col gap-2">

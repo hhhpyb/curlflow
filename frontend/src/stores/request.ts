@@ -14,7 +14,9 @@ import {
     GetProjectConfig,
     SaveProjectConfig,
     GetEnvConfig,
-    PurgeDeletedFiles
+    PurgeDeletedFiles,
+    GetLastOpenedProject,
+    OpenProject
 } from '../../wailsjs/go/main/App';
 import {domain, main, storage} from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
@@ -321,10 +323,50 @@ export const useRequestStore = defineStore('request', {
             }
         },
 
+        async openProject(dir: string) {
+            try {
+                // Explicitly switch to a known path (e.g. from history list)
+                if (dir) {
+                    // Notify backend to update "Recent" list (move to top)
+                    await OpenProject(dir);
+
+                    this.workDir = dir;
+                    localStorage.setItem('curlflow_workDir', dir);
+                    this.currentFileName = ''; 
+                    await this.fetchFiles();
+                    
+                    const envStore = useEnvStore();
+                    await envStore.loadEnvs();
+                }
+            } catch (e) {
+                console.error('Failed to open project:', e);
+            }
+        },
+
         async init() {
+            try {
+                // 1. Try to get the last opened project from the backend (System of Truth)
+                const lastProject = await GetLastOpenedProject();
+                if (lastProject) {
+                    this.workDir = lastProject;
+                    await this.fetchFiles();
+                    const envStore = useEnvStore();
+                    await envStore.loadEnvs();
+                    return true;
+                }
+            } catch (e) {
+                console.error('Failed to get last opened project from backend:', e);
+            }
+
+            // 2. Fallback to localStorage if backend fails or returns empty (Legacy)
             const savedDir = localStorage.getItem('curlflow_workDir');
             if (savedDir) {
                 this.workDir = savedDir;
+                // Sync back to backend
+                try {
+                    await OpenProject(savedDir); 
+                } catch (e) {}
+                
                 await this.fetchFiles();
                 const envStore = useEnvStore();
                 await envStore.loadEnvs();
