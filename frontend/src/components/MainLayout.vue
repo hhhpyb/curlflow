@@ -8,7 +8,9 @@ import {
   SettingsOutline,
   ListOutline,
   InformationCircleOutline,
-  PencilOutline
+  PencilOutline,
+  CloudOfflineOutline,
+  CloudDoneOutline
 } from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import QueryParamsEditor from './QueryParamsEditor.vue'
@@ -21,9 +23,11 @@ import ResponsePanel from './ResponsePanel.vue'
 import SettingsModal from './SettingsModal.vue'
 import RequestMetaModal from './RequestMetaModal.vue'
 import BodyDocsViewer from './BodyDocsViewer.vue'
+import WebSocketPanel from './WebSocketPanel.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
+import { useWebSocketStore } from '../stores/websocket'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -34,11 +38,19 @@ window.$dialog = dialog
 const store = useRequestStore()
 const envStore = useEnvStore()
 const settingsStore = useSettingsStore()
+const wsStore = useWebSocketStore()
 
 // Modal States
 const showEnvModal = ref(false)
 const showSettingsModal = ref(false)
 const showMetaModal = ref(false)
+
+// WS Connection State Helper
+const isWsConnected = computed(() => {
+  if (store.request.method !== 'WS') return false
+  const sessionId = store.meta?.id || 'temp-session'
+  return wsStore.getSession(sessionId)?.isConnected || false
+})
 
 // Horizontal split logic
 const horizontalSplitSize = ref(0.2) // Default 20%
@@ -124,27 +136,23 @@ const handleSave = async () => {
 
 const handleMetaSave = async (data: { summary: string; tag: string; description: string }) => {
   try {
-    let filename = undefined
-    if (!store.currentFileName) {
-      const defaultName = (data.summary || 'request').toLowerCase().replace(/\s+/g, '_')
-      const input = window.prompt("Enter filename:", `${defaultName}.json`)
-      if (!input) return
-      filename = input.endsWith('.json') ? input : `${input}.json`
-    }
-
-    // This will update meta and call saveCurrent
-    await store.updateRequestMeta(data)
+    // 1. Update Store State (Initializes meta if missing)
+    await store.updateRequestMeta({
+      summary: data.summary,
+      tag: data.tag,
+      description: data.description
+    })
     
-    // If it was a new file, we need to save again with the chosen filename 
-    // actually updateRequestMeta calls saveCurrent() internally. 
-    // If we passed filename to updateRequestMeta it would be better.
-    // Let's adjust store.updateRequestMeta to accept optional filename.
-    if (filename) {
-        await store.saveCurrent(filename)
-    }
+    // 2. Perform Save
+    // saveCurrent will now handle unique filename generation if currentFileName is empty
+    await store.saveCurrent()
+    
+    // 3. Close Modal
+    showMetaModal.value = false
 
     message.success("保存成功")
   } catch (e: any) {
+    console.error('handleMetaSave error:', e)
     message.error(e.message || "保存失败")
   }
 }
@@ -164,6 +172,20 @@ const handleRun = async () => {
   }
 }
 
+const handleWsAction = () => {
+  const sessionId = store.meta?.id || 'temp-session'
+  if (isWsConnected.value) {
+    wsStore.disconnect(sessionId)
+  } else {
+    if (!store.request.url) {
+      message.warning("URL不能为空")
+      return
+    }
+    // TODO: Pass headers from store.request.headers
+    wsStore.connect(sessionId, store.request.url, store.request.headers || {})
+  }
+}
+
 const handleEnvChange = (val: string) => {
   envStore.setActiveEnv(val)
   envStore.saveEnvs()
@@ -176,7 +198,8 @@ const methodOptions = [
   { label: 'DELETE', value: 'DELETE' },
   { label: 'PATCH', value: 'PATCH' },
   { label: 'HEAD', value: 'HEAD' },
-  { label: 'OPTIONS', value: 'OPTIONS' }
+  { label: 'OPTIONS', value: 'OPTIONS' },
+  { label: 'WS', value: 'WS', style: { color: '#a78bfa', fontWeight: 'bold' } }
 ]
 
 const handleRequestBaseChange = () => {
@@ -372,7 +395,10 @@ onUnmounted(() => {
                   </n-icon>
                 </template>
               </n-button>
+              
+              <!-- Dynamic Action Button -->
               <n-button
+                  v-if="store.request.method !== 'WS'"
                   type="primary"
                   size="small"
                   :loading="store.isLoading"
@@ -386,13 +412,27 @@ onUnmounted(() => {
                 </template>
                 Run
               </n-button>
+
+              <n-button
+                  v-else
+                  :type="isWsConnected ? 'error' : 'primary'"
+                  size="small"
+                  @click="handleWsAction"
+                  class="px-6"
+              >
+                <template #icon>
+                  <n-icon :component="isWsConnected ? CloudOfflineOutline : CloudDoneOutline" />
+                </template>
+                {{ isWsConnected ? 'Disconnect' : 'Connect' }}
+              </n-button>
+
             </div>
           </div>
 
           <!-- Main Content Area -->
           <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
             <!-- Request Section (Top) -->
-            <div class="flex flex-col gap-2 min-h-0" :style="{ height: `${requestHeightPercent}%` }">
+            <div class="flex flex-col gap-2 min-h-0" :style="store.request.method === 'WS' ? { height: '100%' } : { height: `${requestHeightPercent}%` }">
               <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center justify-between shrink-0">
                 <div class="flex items-center gap-2">
                   <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
@@ -436,8 +476,16 @@ onUnmounted(() => {
                   </n-input-group>
                 </div>
 
-                <!-- Unified Request Tabs -->
-                <div v-if="store.request" class="flex-1 flex flex-col min-h-0">
+                <!-- WebSocket Panel (Conditional) -->
+                <div v-if="store.request.method === 'WS'" class="flex-1 flex flex-col min-h-0 bg-[#1e1e1e] rounded overflow-hidden">
+                  <WebSocketPanel 
+                    :requestId="store.meta?.id || 'temp-session'" 
+                    :request="store.request"
+                  />
+                </div>
+
+                <!-- HTTP Request Tabs (Conditional) -->
+                <div v-else-if="store.request" class="flex-1 flex flex-col min-h-0">
                   <n-tabs
                     v-model:value="store.activeEditorTab"
                     type="line"
@@ -552,6 +600,7 @@ onUnmounted(() => {
 
             <!-- Resizer Handle -->
             <div 
+              v-if="store.request.method !== 'WS'"
               class="h-2 w-full hover:bg-blue-500/50 cursor-row-resize flex items-center justify-center group transition-colors my-1 shrink-0"
               @mousedown="startDrag"
             >
@@ -559,7 +608,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Response Section (Bottom) -->
-            <div class="flex-1 min-h-0 overflow-hidden mt-1">
+            <div v-if="store.request.method !== 'WS'" class="flex-1 min-h-0 overflow-hidden mt-1">
               <ResponsePanel class="h-full rounded-lg border border-gray-700/50" />
             </div>
           </div>
@@ -571,6 +620,7 @@ onUnmounted(() => {
     <RequestMetaModal
       v-model:show="showMetaModal"
       :initial-data="store.meta"
+      :current-file-name="store.currentFileName"
       :existing-tags="store.folderOptions"
       @save="handleMetaSave"
     />

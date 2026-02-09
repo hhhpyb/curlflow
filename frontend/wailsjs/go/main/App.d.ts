@@ -54,3 +54,9 @@ export function SelectWorkDir():Promise<string>;
 export function SendRequest(arg1:domain.HttpRequest,arg2:string):Promise<domain.HttpResponse>;
 
 export function SyncSwagger(arg1:string,arg2:string):Promise<string>;
+
+export function WsConnect(arg1:string,arg2:string,arg3:Record<string, string>):Promise<string>;
+
+export function WsDisconnect(arg1:string):Promise<string>;
+
+export function WsSend(arg1:string,arg2:string):Promise<string>;

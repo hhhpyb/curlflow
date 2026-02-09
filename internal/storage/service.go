@@ -117,6 +117,12 @@ func (s *Service) SaveRequest(dirPath string, filename string, reqFile domain.Re
 
 	fullPath := filepath.Join(dirPath, filename)
 
+	// Ensure the parent directory exists
+	parentDir := filepath.Dir(fullPath)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create directory: %w", err)
+	}
+
 	// Marshal with indentation for readability
 	data, err := json.MarshalIndent(reqFile, "", "  ")
 	if err != nil {

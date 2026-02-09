@@ -17,7 +17,7 @@ withDefaults(defineProps<Props>(), {
 })
 
 // 定义发出的事件（用于 v-model 更新）
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'mount'])
 
 // 处理内容变化
 const handleChange = (val: string | undefined) => {
@@ -25,12 +25,13 @@ const handleChange = (val: string | undefined) => {
 }
 
 // 编辑器加载完成后的配置（可选）
-const handleMount = (editor: any) => {
+const handleMount = (editor: any, monaco: any) => {
   // 这里可以做一些高级配置，比如设置自动换行
   editor.updateOptions({
     wordWrap: 'on',
     minimap: { enabled: false } // 关闭右侧缩略图，节省空间
   })
+  emit('mount', editor, monaco)
 }
 </script>
 

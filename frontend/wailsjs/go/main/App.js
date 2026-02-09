@@ -101,3 +101,15 @@ export function SendRequest(arg1, arg2) {
 export function SyncSwagger(arg1, arg2) {
   return window['go']['main']['App']['SyncSwagger'](arg1, arg2);
 }
+
+export function WsConnect(arg1, arg2, arg3) {
+  return window['go']['main']['App']['WsConnect'](arg1, arg2, arg3);
+}
+
+export function WsDisconnect(arg1) {
+  return window['go']['main']['App']['WsDisconnect'](arg1);
+}
+
+export function WsSend(arg1, arg2) {
+  return window['go']['main']['App']['WsSend'](arg1, arg2);
+}

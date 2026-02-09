@@ -29,5 +29,6 @@ declare module 'vue' {
     ResponsePanel: typeof import('./src/components/ResponsePanel.vue')['default']
     SettingsModal: typeof import('./src/components/SettingsModal.vue')['default']
     Sidebar: typeof import('./src/components/Sidebar.vue')['default']
+    WebSocketPanel: typeof import('./src/components/WebSocketPanel.vue')['default']
   }
 }

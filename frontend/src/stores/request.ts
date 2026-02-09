@@ -66,7 +66,13 @@ function preprocessCurl(curl: string): string {
 export const useRequestStore = defineStore('request', {
     state: () => ({
         curlCode: '',
-        request: new domain.HttpRequest(),
+        request: {
+            method: 'GET',
+            url: '',
+            headers: {},
+            body: '',
+            compressed: false
+        } as domain.HttpRequest,
         meta: null as domain.MetaData | null,
         isLoading: false,
         response: new domain.HttpResponse(),
@@ -262,22 +268,27 @@ export const useRequestStore = defineStore('request', {
         // ================= File Actions =================
 
         async updateRequestMeta(metaInfo: { summary: string, tag: string, description: string }) {
-            if (!this.meta) return;
-
-            // 1. Update local state
-            this.meta.summary = metaInfo.summary;
-            this.meta.description = metaInfo.description;
-            this.meta.tags = metaInfo.tag ? [metaInfo.tag] : [];
-
-            // 2. Save to disk
-            try {
-                await this.saveCurrent();
-                // 3. Refresh file list to reflect folder changes in sidebar
-                await this.fetchFiles();
-            } catch (e) {
-                console.error('Failed to update request meta:', e);
-                throw e;
+            // 1. Ensure meta is initialized
+            if (!this.meta) {
+                const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+                    ? crypto.randomUUID() 
+                    : Math.random().toString(36).substring(2) + Date.now().toString(36);
+                
+                this.meta = {
+                    id: newId,
+                    status: 'active',
+                    source: 'user',
+                    tags: []
+                } as any;
             }
+
+            const m = this.meta!;
+            // 2. Update state
+            m.summary = metaInfo.summary;
+            m.description = metaInfo.description;
+            m.tags = metaInfo.tag ? [metaInfo.tag] : [];
+            
+            console.log('Meta updated in store:', m);
         },
 
         createNewRequest() {
@@ -287,9 +298,13 @@ export const useRequestStore = defineStore('request', {
             this.request.headers = {};
             this.request.body = '';
             
+            const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+                ? crypto.randomUUID() 
+                : Math.random().toString(36).substring(2) + Date.now().toString(36);
+
             // Initialize meta with source = 'user' for new requests
             this.meta = {
-                id: crypto.randomUUID(),
+                id: newId,
                 status: 'active',
                 source: 'user',
                 tags: []
@@ -310,7 +325,10 @@ export const useRequestStore = defineStore('request', {
                 if (dir) {
                     this.workDir = dir;
                     localStorage.setItem('curlflow_workDir', dir);
-                    this.currentFileName = ''; // Reset current file when changing dir
+                    
+                    // Clear current request data when switching directories
+                    this.createNewRequest();
+                    
                     await this.fetchFiles();
                     
                     // Reload environments for the new directory
@@ -332,7 +350,10 @@ export const useRequestStore = defineStore('request', {
 
                     this.workDir = dir;
                     localStorage.setItem('curlflow_workDir', dir);
-                    this.currentFileName = ''; 
+                    
+                    // Clear current request data when switching projects
+                    this.createNewRequest();
+
                     await this.fetchFiles();
                     
                     const envStore = useEnvStore();
@@ -390,6 +411,28 @@ export const useRequestStore = defineStore('request', {
             }
         },
 
+        /**
+         * Generates a safe, unique filename based on a summary string.
+         */
+        generateUniqueFilename(summary: string): string {
+            const base = (summary || 'request').toLowerCase()
+                .replace(/[\\/:*?"<>|]/g, '_') // Remove illegal filename chars
+                .replace(/\s+/g, '_');
+            
+            let name = base.endsWith('.json') ? base : base + '.json';
+            
+            // Check for collisions
+            let counter = 1;
+            const existingNames = new Set(this.fileList.map(f => f.fileName.toLowerCase()));
+            
+            while (existingNames.has(name.toLowerCase())) {
+                name = `${base}_${counter}.json`;
+                counter++;
+            }
+            
+            return name;
+        },
+
         async saveCurrent(filename?: string) {
             if (!this.workDir) {
                 throw new Error('No working directory selected. Please open a folder first.');
@@ -397,46 +440,56 @@ export const useRequestStore = defineStore('request', {
 
             let targetName = '';
 
-            // Scenario A: Save As (User provided a filename)
+            // Scenario A: Explicit filename provided (e.g., from old logic or special overrides)
             if (filename && filename.trim() !== '') {
-                targetName = filename;
+                targetName = filename.toLowerCase().endsWith('.json') ? filename : filename + '.json';
             } 
             // Scenario B: Overwrite (Use existing filename)
             else if (this.currentFileName) {
                 targetName = this.currentFileName;
             } 
-            // Scenario C: Error (No filename available)
+            // Scenario C: New request, generate from summary
             else {
-                throw new Error('Filename is required for a new request.');
+                targetName = this.generateUniqueFilename(this.meta?.summary || 'request');
             }
 
             try {
-                // IMPORTANT: Use SaveFullRequest instead of SaveRequest to preserve metadata changes
-                // We construct the full RequestFile object here
-                const reqFile = {
-                    _meta: this.meta || {
-                        id: crypto.randomUUID(), // Generate a new ID if meta is missing
+                // Ensure meta is initialized
+                if (!this.meta) {
+                    const newId = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+                        ? crypto.randomUUID() 
+                        : Math.random().toString(36).substring(2) + Date.now().toString(36);
+                    this.meta = {
+                        id: newId,
                         status: 'active',
-                        source: 'user', // Default source for manually saved requests
-                    },
+                        source: 'user',
+                        tags: []
+                    } as any;
+                }
+
+                // Construct full RequestFile object
+                const reqFile = {
+                    _meta: this.meta,
                     data: this.request
                 };
 
+                console.log(`[Store] Saving to ${targetName} in ${this.workDir}...`, JSON.stringify(reqFile));
+
                 const savedPath = await SaveFullRequest(this.workDir, targetName, reqFile as any);
+                
                 if (savedPath) {
-                    const actualName = targetName.toLowerCase().endsWith('.json') ? targetName : targetName + '.json';
-                    this.currentFileName = actualName;
+                    console.log('[Store] Save successful, path:', savedPath);
+                    this.currentFileName = targetName;
                     
-                    // Update local meta if it was newly created
-                    if (!this.meta) {
-                        this.meta = reqFile._meta as any;
-                    }
-                    
+                    // Refresh file list
                     await this.fetchFiles();
+                    return savedPath;
+                } else {
+                    console.error('[Store] Backend returned empty path');
+                    throw new Error('Backend returned empty path after save');
                 }
-                return savedPath;
             } catch (e) {
-                console.error('Failed to save file:', e);
+                console.error('[Store] Failed to save file:', e);
                 throw e;
             }
         },

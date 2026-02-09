@@ -23,6 +23,7 @@ const props = defineProps<{
   show: boolean;
   initialData: MetaData | null;
   existingTags: string[];
+  currentFileName?: string;
 }>();
 
 const emit = defineEmits<{
@@ -41,15 +42,24 @@ const formValue = ref({
 watch(
   () => props.show,
   (isShowing) => {
-    if (isShowing && props.initialData) {
-      formValue.value = {
-        summary: props.initialData.summary || '',
-        // 处理 tags 数组，只取第一个作为文件夹名
-        tag: (props.initialData.tags && props.initialData.tags.length > 0) 
-          ? props.initialData.tags[0] 
-          : '',
-        description: props.initialData.description || ''
-      };
+    if (isShowing) {
+      if (props.initialData) {
+        formValue.value = {
+          summary: props.initialData.summary || '',
+          // 处理 tags 数组，只取第一个作为文件夹名
+          tag: (props.initialData.tags && props.initialData.tags.length > 0) 
+            ? props.initialData.tags[0] 
+            : '',
+          description: props.initialData.description || ''
+        };
+      } else {
+        // Reset for new request
+        formValue.value = {
+          summary: '',
+          tag: '',
+          description: ''
+        };
+      }
     }
   },
   { immediate: true }

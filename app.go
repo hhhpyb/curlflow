@@ -9,6 +9,7 @@ import (
 	"curlflow/internal/runner"
 	"curlflow/internal/storage"
 	"curlflow/internal/syncer"
+	"curlflow/internal/websocket"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,12 +21,13 @@ import (
 
 // App struct
 type App struct {
-	ctx     context.Context
-	runner  *runner.Service
-	storage *storage.Service
-	syncer  *syncer.Service
-	history *history.Service
-	project *project.Service
+	ctx       context.Context
+	runner    *runner.Service
+	storage   *storage.Service
+	syncer    *syncer.Service
+	history   *history.Service
+	project   *project.Service
+	wsManager *websocket.Manager
 }
 
 // AppConfig holds global application settings
@@ -39,11 +41,12 @@ type AppConfig struct {
 func NewApp() *App {
 	storageService := storage.NewService()
 	return &App{
-		runner:  runner.NewService(),
-		storage: storageService,
-		syncer:  syncer.NewService(storageService),
-		history: history.NewService(),
-		project: project.NewService(),
+		runner:    runner.NewService(),
+		storage:   storageService,
+		syncer:    syncer.NewService(storageService),
+		history:   history.NewService(),
+		project:   project.NewService(),
+		wsManager: websocket.NewManager(),
 	}
 }
 
@@ -51,6 +54,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.wsManager.SetContext(ctx)
 	// Load settings on startup and apply to runner
 	cfg := a.GetSettings()
 	a.runner.UpdateConfig(runner.RunnerConfig{
@@ -387,4 +391,35 @@ func (a *App) OpenProject(path string) {
 // GetLastOpenedProject returns the last opened project path
 func (a *App) GetLastOpenedProject() string {
 	return a.project.GetLastOpened()
+}
+
+func (a *App) beforeClose(ctx context.Context) (prevent bool) {
+	a.wsManager.CloseAll()
+	return false
+}
+
+// WebSocket Methods
+
+// WsConnect establishes a new WebSocket connection
+func (a *App) WsConnect(sessionID string, url string, headers map[string]string) string {
+	err := a.wsManager.Connect(sessionID, url, headers)
+	if err != nil {
+		return err.Error()
+	}
+	return "success"
+}
+
+// WsDisconnect closes a WebSocket connection
+func (a *App) WsDisconnect(sessionID string) string {
+	a.wsManager.Disconnect(sessionID)
+	return "success"
+}
+
+// WsSend sends a message to a WebSocket connection
+func (a *App) WsSend(sessionID string, message string) string {
+	err := a.wsManager.SendMessage(sessionID, message)
+	if err != nil {
+		return err.Error()
+	}
+	return "success"
 }

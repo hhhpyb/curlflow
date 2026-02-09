@@ -32,7 +32,7 @@ jobs:
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: curlflow-windows
+          name: curlflow-amd64
           path: build/bin/${{ env.APP_NAME }}.exe
 
   # === 2. 构建 Linux 版本 (Ubuntu) ===
@@ -115,7 +115,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: curlflow-macos
-          path: build/bin/${{ env.APP_NAME }}-mac-universal.dmg
+          path: build/bin/${{ env.APP_NAME }}.dmg
 
   # === 4. 发布 Release ===
   release:
