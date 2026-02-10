@@ -6,7 +6,7 @@ import JsonSchemaTable from './JsonSchemaTable.vue'
 import { domain } from '../../wailsjs/go/models'
 
 const props = defineProps<{
-  request: domain.RequestFile
+  request: any
 }>()
 
 const globalSearch = ref('')
@@ -14,9 +14,9 @@ const globalSearch = ref('')
 const requestBody = computed(() => props.request.data.body || '{}')
 const paramDocs = computed(() => props.request._meta.param_docs || {})
 
-// Cast to any to access new fields until wailsjs is regenerated
-const responseDocs = computed(() => (props.request._meta as any).response_docs || {})
-const responseExample = computed(() => (props.request._meta as any).response_example || '{}')
+// Metadata fields are now available in the generated types
+const responseDocs = computed(() => props.request._meta.response_docs || {})
+const responseExample = computed(() => props.request._meta.response_example || '{}')
 
 const summary = computed(() => props.request._meta.summary)
 const description = computed(() => props.request._meta.description)

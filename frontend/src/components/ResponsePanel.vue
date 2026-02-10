@@ -12,17 +12,27 @@ const store = useRequestStore()
 const message = useMessage()
 const showErrorDetail = ref(false)
 
+interface Props {
+    previewContent?: string
+}
+const props = defineProps<Props>()
+
 // --- Computed Properties ---
 
+const isShowingPreview = computed(() => !!props.previewContent)
+
 const hasResponse = computed(() => {
+    if (isShowingPreview.value) return true
     return store.response && store.response.statusCode > 0
 })
 
 const hasError = computed(() => {
+    if (isShowingPreview.value) return false
     return !!store.response.error
 })
 
 const statusType = computed(() => {
+    if (isShowingPreview.value) return 'info'
     const code = store.response.statusCode
     if (code >= 200 && code < 300) return 'success'
     if (code >= 300 && code < 400) return 'warning'
@@ -30,12 +40,15 @@ const statusType = computed(() => {
 })
 
 const responseSize = computed(() => {
-    const len = store.response.body ? store.response.body.length : 0
+    const len = displayedBody.value ? displayedBody.value.length : 0
     if (len < 1024) return `${len} B`
     return `${(len / 1024).toFixed(2)} KB`
 })
 
 const headersList = computed(() => {
+    if (isShowingPreview.value) {
+        return [{ key: 'Content-Type', value: 'application/json (Example)' }]
+    }
     if (!store.response.headers) return []
     return Object.entries(store.response.headers).map(([key, value]) => ({
         key,
@@ -45,6 +58,7 @@ const headersList = computed(() => {
 
 // Auto-detect language for syntax highlighting
 const editorLanguage = computed(() => {
+    if (isShowingPreview.value) return 'json'
     if (!store.response.headers) return 'json'
     // Case-insensitive header lookup
     const keys = Object.keys(store.response.headers)
@@ -56,17 +70,24 @@ const editorLanguage = computed(() => {
     return 'json'
 })
 
+// The actual body to display (Prioritize previewContent)
+const displayedBody = computed(() => {
+    if (isShowingPreview.value) return props.previewContent || ''
+    return store.response.body || ''
+})
+
 // Formatting Body (Prettify JSON if applicable)
 const formattedBody = computed(() => {
-    if (!store.response.body) return ''
+    const body = displayedBody.value
+    if (!body) return ''
     if (editorLanguage.value === 'json') {
         try {
-            return JSON.stringify(JSON.parse(store.response.body), null, 2)
+            return JSON.stringify(JSON.parse(body), null, 2)
         } catch {
-            return store.response.body
+            return body
         }
     }
-    return store.response.body
+    return body
 })
 
 // --- Actions ---
@@ -114,20 +135,28 @@ const headerColumns = [
         
         <!-- Response Data State -->
         <template v-else-if="hasResponse">
-            <n-tag :type="statusType" size="small" :bordered="false" class="font-mono font-bold">
-                {{ store.response.statusCode }}
-            </n-tag>
-            <div class="flex items-center gap-3 text-xs text-gray-400">
-                <span class="flex items-center gap-1">
-                    <span class="text-gray-500">Time:</span>
-                    <span class="text-green-400 font-mono">{{ store.response.time }}ms</span>
-                </span>
-                <span class="w-[1px] h-3 bg-gray-700"></span>
-                <span class="flex items-center gap-1">
-                    <span class="text-gray-500">Size:</span>
-                    <span class="text-blue-400 font-mono">{{ responseSize }}</span>
-                </span>
-            </div>
+            <template v-if="isShowingPreview">
+                <n-tag type="info" size="small" :bordered="false" class="font-mono font-bold">
+                    EXAMPLE PREVIEW
+                </n-tag>
+                <span class="text-xs text-gray-500 italic">Showing documentation example</span>
+            </template>
+            <template v-else>
+                <n-tag :type="statusType" size="small" :bordered="false" class="font-mono font-bold">
+                    {{ store.response.statusCode }}
+                </n-tag>
+                <div class="flex items-center gap-3 text-xs text-gray-400">
+                    <span class="flex items-center gap-1">
+                        <span class="text-gray-500">Time:</span>
+                        <span class="text-green-400 font-mono">{{ store.response.time }}ms</span>
+                    </span>
+                    <span class="w-[1px] h-3 bg-gray-700"></span>
+                    <span class="flex items-center gap-1">
+                        <span class="text-gray-500">Size:</span>
+                        <span class="text-blue-400 font-mono">{{ responseSize }}</span>
+                    </span>
+                </div>
+            </template>
         </template>
         
         <!-- Error State -->

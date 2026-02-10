@@ -227,6 +227,13 @@ const handleBodyChange = (val: string) => {
   store.syncToCurl()
 }
 
+const previewResponseContent = computed(() => {
+  if (store.activeEditorTab === 'Docs' && store.meta) {
+    return store.meta.response_example
+  }
+  return undefined
+})
+
 const formatBody = () => {
   if (!store.request.body) return
   try {
@@ -573,7 +580,10 @@ onUnmounted(() => {
 
               <!-- Response Section (Bottom) -->
               <div v-if="store.request.method !== 'WS'" class="flex-1 min-h-0 overflow-hidden mt-1">
-                <ResponsePanel class="h-full rounded-lg border border-gray-700/50"/>
+                <ResponsePanel 
+                  :preview-content="previewResponseContent"
+                  class="h-full rounded-lg border border-gray-700/50"
+                />
               </div>
             </div>
           </div>
