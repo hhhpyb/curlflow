@@ -18,12 +18,13 @@ import PathVariablesEditor from './PathVariablesEditor.vue'
 import HeadersEditor from './HeadersEditor.vue'
 import CaseBar from './CaseBar.vue'
 import Sidebar from './Sidebar.vue'
-import EnvManager from './EnvManager.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import SettingsModal from './SettingsModal.vue'
 import RequestMetaModal from './RequestMetaModal.vue'
 import BodyDocsViewer from './BodyDocsViewer.vue'
 import WebSocketPanel from './WebSocketPanel.vue'
+import AuthEditor from './AuthEditor.vue'
+import ProjectSettingsModal from './ProjectSettingsModal.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
@@ -41,7 +42,7 @@ const settingsStore = useSettingsStore()
 const wsStore = useWebSocketStore()
 
 // Modal States
-const showEnvModal = ref(false)
+const showProjectSettingsModal = ref(false)
 const showSettingsModal = ref(false)
 const showMetaModal = ref(false)
 
@@ -315,122 +316,126 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen bg-gray-900 text-gray-200 overflow-hidden">
-    <n-split direction="horizontal" v-model:size="horizontalSplitSize" :min="0.15" :max="0.4" @drag-end="handleHorizontalDragEnd" class="h-full">
-      <template #1>
-        <div class="split-pane sidebar-container h-full overflow-hidden">
-          <Sidebar />
+  <div class="h-screen w-screen flex flex-col bg-gray-900 text-gray-200 overflow-hidden">
+    <!-- IDEA-style Unified Top Bar (macOS HiddenInset Adapter) -->
+    <div 
+      class="flex items-center w-full h-[40px] bg-[#2b2d30] border-b border-black/20 shrink-0 select-none z-50"
+      style="--wails-draggable: drag;"
+    >
+      <!-- [1] Traffic Light Safe Area -->
+      <div class="w-[80px] h-full flex-shrink-0"></div>
+
+      <!-- [2] Project Selector (Immediately after traffic lights) -->
+      <n-dropdown 
+        trigger="click" 
+        :options="store.projectOptions" 
+        @select="store.handleProjectSelect"
+        placement="bottom-start"
+      >
+        <div class="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded cursor-pointer no-drag transition-colors" style="--wails-draggable: no-drag">
+          <n-icon :component="ListOutline" size="16" class="text-blue-400/80" />
+          <span class="text-[13px] font-medium text-gray-300">{{ store.folderName }}</span>
+          <n-icon :component="ChevronDownOutline" size="10" class="opacity-40" />
         </div>
-      </template>
-      <template #2>
-        <div class="split-pane content-container h-full p-4 flex flex-col gap-4 min-w-0 overflow-hidden">
-          <!-- Header -->
-          <div class="flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2">
-              <n-icon size="24" color="#4ade80">
-                <CloudDownloadOutline/>
-              </n-icon>
-              <span class="font-bold text-lg tracking-wide text-white">CurlFlow</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <n-select
-                  :value="envStore.activeEnvName"
-                  :options="envStore.envOptions"
-                  size="small"
-                  placeholder="Select Env"
-                  style="width: 150px"
-                  @update:value="handleEnvChange"
-              />
-                            <n-button 
-                              v-if="store.currentFileName"
-                              secondary
-                              size="small"
-                              @click="showMetaModal = true"
-                              class="px-2 text-gray-300"
-                              title="Edit Interface Info"
-                            >
-              
-                <template #icon>
-                  <n-icon>
-                    <InformationCircleOutline/>
-                  </n-icon>
-                </template>
-              </n-button>
-              <n-button
-                  secondary
-                  size="small"
-                  @click="handleSave"
-                  class="px-4 text-gray-300"
-              >
-                <template #icon>
-                  <n-icon>
-                    <SaveOutline/>
-                  </n-icon>
-                </template>
-                Save
-              </n-button>
-              <n-button
-                  secondary
-                  size="small"
-                  @click="showEnvModal = true"
-                  class="px-2 text-gray-300"
-                  title="Environment Variables"
-              >
-                <template #icon>
-                  <n-icon>
-                    <ListOutline/>
-                  </n-icon>
-                </template>
-              </n-button>
-              <n-button
-                  secondary
-                  size="small"
-                  @click="showSettingsModal = true"
-                  class="px-2 text-gray-300"
-                  title="Global Settings"
-              >
-                <template #icon>
-                  <n-icon>
-                    <SettingsOutline/>
-                  </n-icon>
-                </template>
-              </n-button>
-              
-              <!-- Dynamic Action Button -->
-              <n-button
-                  v-if="store.request.method !== 'WS'"
-                  type="primary"
-                  size="small"
-                  :loading="store.isLoading"
-                  @click="handleRun"
-                  class="px-6"
-              >
-                <template #icon>
-                  <n-icon>
-                    <PlayOutline/>
-                  </n-icon>
-                </template>
-                Run
-              </n-button>
+      </n-dropdown>
 
-              <n-button
-                  v-else
-                  :type="isWsConnected ? 'error' : 'primary'"
-                  size="small"
-                  @click="handleWsAction"
-                  class="px-6"
-              >
-                <template #icon>
-                  <n-icon :component="isWsConnected ? CloudOfflineOutline : CloudDoneOutline" />
-                </template>
-                {{ isWsConnected ? 'Disconnect' : 'Connect' }}
-              </n-button>
+      <div class="w-px h-3 bg-white/10 mx-3"></div>
 
-            </div>
+      <!-- App Identifier -->
+      <div class="flex items-center gap-2 px-1 opacity-40">
+        <span class="font-bold text-[10px] tracking-widest uppercase">CurlFlow</span>
+      </div>
+
+      <!-- Spacer (Central Drag Area) -->
+      <div class="flex-1 h-full"></div>
+
+      <!-- Global Actions -->
+      <div class="flex items-center gap-2 pr-3 no-drag" style="--wails-draggable: no-drag">
+        <n-select
+          :value="envStore.activeEnvName"
+          :options="envStore.envOptions"
+          size="small"
+          placeholder="Select Env"
+          style="width: 140px"
+          @update:value="handleEnvChange"
+          class="idea-select"
+        />
+
+        <div class="w-px h-3 bg-white/10 mx-1"></div>
+        
+        <n-button 
+          v-if="store.currentFileName"
+          text
+          size="small"
+          @click="showMetaModal = true"
+          class="px-2 text-gray-400 hover:text-white"
+          title="Edit Interface Info"
+        >
+          <template #icon><n-icon :component="InformationCircleOutline"/></template>
+        </n-button>
+
+        <n-button
+          text
+          size="small"
+          @click="handleSave"
+          class="px-2 text-gray-400 hover:text-white"
+          title="Save (⌘+S)"
+        >
+          <template #icon><n-icon :component="SaveOutline"/></template>
+          Save
+        </n-button>
+
+        <div class="w-px h-3 bg-white/10 mx-1"></div>
+
+        <!-- Dynamic Action Button -->
+        <n-button
+            v-if="store.request.method !== 'WS'"
+            type="primary"
+            size="small"
+            :loading="store.isLoading"
+            @click="handleRun"
+            class="px-4 font-bold h-7"
+            color="#3574f0"
+        >
+          <template #icon><n-icon :component="PlayOutline"/></template>
+          Run
+        </n-button>
+
+        <n-button
+            v-else
+            :type="isWsConnected ? 'error' : 'primary'"
+            size="small"
+            @click="handleWsAction"
+            class="px-4 font-bold h-7"
+        >
+          <template #icon><n-icon :component="isWsConnected ? CloudOfflineOutline : CloudDoneOutline" /></template>
+          {{ isWsConnected ? 'Disconnect' : 'Connect' }}
+        </n-button>
+
+        <n-button
+            text
+            size="small"
+            @click="showProjectSettingsModal = true"
+            class="px-2 text-gray-400 hover:text-white"
+            title="Project Settings"
+        >
+          <template #icon><n-icon :component="SettingsOutline"/></template>
+        </n-button>
+      </div>
+    </div>
+
+    <!-- Main Content Below Header -->
+    <div class="flex-1 min-h-0 overflow-hidden">
+      <n-split direction="horizontal" v-model:size="horizontalSplitSize" :min="0.15" :max="0.4" @drag-end="handleHorizontalDragEnd" class="h-full">
+        <template #1>
+          <div class="split-pane sidebar-container h-full overflow-hidden">
+            <Sidebar />
           </div>
-
-          <!-- Main Content Area -->
-          <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
+        </template>
+        <template #2>
+          <div class="split-pane content-container h-full p-4 pt-2 flex flex-col gap-4 min-w-0 overflow-hidden">
+            <!-- Main Content Area -->
+            <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
             <!-- Request Section (Top) -->
             <div class="flex flex-col gap-2 min-h-0" :style="store.request.method === 'WS' ? { height: '100%' } : { height: `${requestHeightPercent}%` }">
               <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center justify-between shrink-0">
@@ -525,6 +530,19 @@ onUnmounted(() => {
                           :meta="store.meta"
                           @update:url="handleRequestBaseChange"
                         />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- Tab Auth -->
+                    <n-tab-pane name="Auth">
+                      <template #tab>
+                        <div class="flex items-center gap-1">
+                          Auth
+                          <div v-if="store.request.auth && store.request.auth.type !== 'noauth'" class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        </div>
+                      </template>
+                      <div class="py-2 h-full overflow-auto">
+                        <AuthEditor v-model:auth="store.request.auth" :show-inherit="true" />
                       </div>
                     </n-tab-pane>
 
@@ -625,8 +643,9 @@ onUnmounted(() => {
       @save="handleMetaSave"
     />
 
-    <EnvManager v-model:show="showEnvModal" />
+    <ProjectSettingsModal v-model:show="showProjectSettingsModal" />
     <SettingsModal v-model:show="showSettingsModal" />
+    </div>
   </div>
 </template>
 

@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AuthEditor: typeof import('./src/components/AuthEditor.vue')['default']
     BodyDocsViewer: typeof import('./src/components/BodyDocsViewer.vue')['default']
     CaseBar: typeof import('./src/components/CaseBar.vue')['default']
     CodeEditor: typeof import('./src/components/CodeEditor.vue')['default']
@@ -20,10 +21,15 @@ declare module 'vue' {
     NAlert: typeof import('naive-ui')['NAlert']
     NConfigProvider: typeof import('naive-ui')['NConfigProvider']
     NDialogProvider: typeof import('naive-ui')['NDialogProvider']
+    NDivider: typeof import('naive-ui')['NDivider']
+    NDropdown: typeof import('naive-ui')['NDropdown']
     NGlobalStyle: typeof import('naive-ui')['NGlobalStyle']
+    NInput: typeof import('naive-ui')['NInput']
     NInputGroup: typeof import('naive-ui')['NInputGroup']
     NMessageProvider: typeof import('naive-ui')['NMessageProvider']
+    NSelect: typeof import('naive-ui')['NSelect']
     PathVariablesEditor: typeof import('./src/components/PathVariablesEditor.vue')['default']
+    ProjectSettingsModal: typeof import('./src/components/ProjectSettingsModal.vue')['default']
     QueryParamsEditor: typeof import('./src/components/QueryParamsEditor.vue')['default']
     RequestMetaModal: typeof import('./src/components/RequestMetaModal.vue')['default']
     ResponsePanel: typeof import('./src/components/ResponsePanel.vue')['default']

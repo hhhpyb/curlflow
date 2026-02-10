@@ -2,6 +2,7 @@ package parser
 
 import (
 	"curlflow/internal/domain"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"sort"
@@ -98,6 +99,50 @@ func ParseCurl(curlCmd string) (*domain.HttpRequest, error) {
 		}
 	}
 
+	// Smart Parse Logic: Extract Auth from Headers
+	// Iterate through keys to check for "Authorization" (case-insensitive check needed, but headers map keys are raw)
+	// Since we don't normalize keys in parseHeader except for blacklist check, we need to find the key.
+	var authKey string
+	for k := range req.Headers {
+		if strings.ToLower(k) == "authorization" {
+			authKey = k
+			break
+		}
+	}
+
+	if authKey != "" {
+		val := req.Headers[authKey]
+		// 1. Bearer Token
+		if strings.HasPrefix(strings.ToLower(val), "bearer ") {
+			token := strings.TrimSpace(val[7:])
+			req.Auth.Type = domain.AuthTypeBearer
+			req.Auth.Data = map[string]string{"token": token}
+			delete(req.Headers, authKey)
+		} else if strings.HasPrefix(strings.ToLower(val), "basic ") {
+			// 2. Basic Auth
+			encoded := strings.TrimSpace(val[6:])
+			decoded, err := base64.StdEncoding.DecodeString(encoded)
+			if err == nil {
+				payload := string(decoded)
+				parts := strings.SplitN(payload, ":", 2)
+				if len(parts) == 2 {
+					req.Auth.Type = domain.AuthTypeBasic
+					req.Auth.Data = map[string]string{
+						"username": parts[0],
+						"password": parts[1],
+					}
+					delete(req.Headers, authKey)
+				}
+			}
+		}
+		// If not matched, leave it as manual header
+	}
+	// Initializing Auth struct for safety if not set
+	if req.Auth.Type == "" {
+		req.Auth.Type = domain.AuthTypeNoAuth
+		req.Auth.Data = make(map[string]string)
+	}
+
 	return req, nil
 }
 
@@ -129,20 +174,63 @@ func BuildCurl(req domain.HttpRequest) string {
 	}
 
 	// URL
-	if req.URL != "" {
-		sb.WriteString(fmt.Sprintf(" '%s'", escapeSingleQuotes(req.URL)))
+	urlFinal := req.URL
+
+	// Handle API Key in Query (modify URL)
+	if req.Auth.Type == domain.AuthTypeApiKey && req.Auth.Data["addTo"] == "query" {
+		key := req.Auth.Data["key"]
+		val := req.Auth.Data["value"]
+		if key != "" && val != "" {
+			separator := "?"
+			if strings.Contains(urlFinal, "?") {
+				separator = "&"
+			}
+			urlFinal = fmt.Sprintf("%s%s%s=%s", urlFinal, separator, key, val)
+		}
+	}
+
+	if urlFinal != "" {
+		sb.WriteString(fmt.Sprintf(" '%s'", escapeSingleQuotes(urlFinal)))
 	}
 
 	// Headers
+	// 1. Copy existing headers
+	finalHeaders := make(map[string]string)
+	for k, v := range req.Headers {
+		finalHeaders[k] = v
+	}
+
+	// 2. Enrich with Auth Headers (Override if exists)
+	switch req.Auth.Type {
+	case domain.AuthTypeBearer:
+		if token, ok := req.Auth.Data["token"]; ok && token != "" {
+			finalHeaders["Authorization"] = "Bearer " + token
+		}
+	case domain.AuthTypeBasic:
+		username := req.Auth.Data["username"]
+		password := req.Auth.Data["password"]
+		auth := username + ":" + password
+		encoded := base64.StdEncoding.EncodeToString([]byte(auth))
+		finalHeaders["Authorization"] = "Basic " + encoded
+	case domain.AuthTypeApiKey:
+		if req.Auth.Data["addTo"] != "query" { // Default to header
+			key := req.Auth.Data["key"]
+			val := req.Auth.Data["value"]
+			if key != "" && val != "" {
+				finalHeaders[key] = val
+			}
+		}
+	}
+
 	// Sort headers for deterministic output
 	var keys []string
-	for k := range req.Headers {
+	for k := range finalHeaders {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		v := req.Headers[k]
+		v := finalHeaders[k]
 		sb.WriteString(fmt.Sprintf(" -H '%s: %s'", escapeSingleQuotes(k), escapeSingleQuotes(v)))
 	}
 

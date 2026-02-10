@@ -1,5 +1,22 @@
 package domain
 
+// AuthType defines the type of authorization
+type AuthType string
+
+const (
+	AuthTypeNoAuth  AuthType = "noauth"
+	AuthTypeInherit AuthType = "inherit"
+	AuthTypeBearer  AuthType = "bearer"
+	AuthTypeBasic   AuthType = "basic"
+	AuthTypeApiKey  AuthType = "apikey"
+)
+
+// Auth holds authorization configuration
+type Auth struct {
+	Type AuthType          `json:"type"`
+	Data map[string]string `json:"data"`
+}
+
 // HttpRequest represents the parsed components of a curl command or a request to be executed.
 type HttpRequest struct {
 	URL        string            `json:"url"`
@@ -7,6 +24,7 @@ type HttpRequest struct {
 	Headers    map[string]string `json:"headers"`
 	Body       string            `json:"body"`
 	Compressed bool              `json:"compressed"`
+	Auth       Auth              `json:"auth"`
 }
 
 type RequestFile struct {
@@ -34,4 +52,12 @@ type HttpResponse struct {
 	Body       string            `json:"body"`
 	Headers    map[string]string `json:"headers"`
 	Error      string            `json:"error"`
+}
+
+type ProjectConfig struct {
+	Name        string `json:"name"`
+	SwaggerURL  string `json:"swagger_url"`
+	Auth        Auth   `json:"auth"`
+	ProxyURL    string `json:"proxy_url"`
+	Description string `json:"description"`
 }

@@ -99,7 +99,10 @@ func (s *Service) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 		httpReq.Header.Set(k, v)
 	}
 
-	// 6. Execute
+	// 6. Enrich Auth (Override Headers if necessary)
+	s.enrichAuth(httpReq, req.Auth)
+
+	// 7. Execute
 	resp, err := client.Do(httpReq)
 	duration := time.Since(start).Milliseconds()
 
@@ -111,7 +114,7 @@ func (s *Service) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 	}
 	defer resp.Body.Close()
 
-	// 7. Read Response
+	// 8. Read Response
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return domain.HttpResponse{
@@ -120,7 +123,7 @@ func (s *Service) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 		}
 	}
 
-	// 8. Convert Headers
+	// 9. Convert Headers
 	headers := make(map[string]string)
 	for k, v := range resp.Header {
 		headers[k] = strings.Join(v, ", ")
@@ -131,6 +134,56 @@ func (s *Service) SendRequest(req domain.HttpRequest) domain.HttpResponse {
 		Headers:    headers,
 		Body:       string(bodyBytes),
 		Time:       duration,
+	}
+}
+
+// ResolveAuth resolves the authentication configuration by traversing the parent chain.
+// It modifies the request's Auth in-place if inheritance is resolved.
+func (s *Service) ResolveAuth(req *domain.HttpRequest, parentAuths []domain.Auth) {
+	if req.Auth.Type != domain.AuthTypeInherit {
+		return
+	}
+
+	// Iterate through parents (nearest first) to find the first non-inherit auth
+	for _, auth := range parentAuths {
+		if auth.Type != domain.AuthTypeInherit && auth.Type != "" {
+			req.Auth = auth
+			return
+		}
+	}
+
+	// If no valid parent found, fallback to NoAuth
+	req.Auth = domain.Auth{Type: domain.AuthTypeNoAuth}
+}
+
+func (s *Service) enrichAuth(req *http.Request, auth domain.Auth) {
+	if auth.Data == nil {
+		return
+	}
+	switch auth.Type {
+	case domain.AuthTypeBearer:
+		if token, ok := auth.Data["token"]; ok && token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+	case domain.AuthTypeBasic:
+		username := auth.Data["username"]
+		password := auth.Data["password"]
+		req.SetBasicAuth(username, password)
+	case domain.AuthTypeApiKey:
+		key := auth.Data["key"]
+		value := auth.Data["value"]
+		addTo := auth.Data["addTo"] // "header" or "query"
+
+		if key != "" && value != "" {
+			if addTo == "query" {
+				q := req.URL.Query()
+				q.Set(key, value)
+				req.URL.RawQuery = q.Encode()
+			} else {
+				// Default to header
+				req.Header.Set(key, value)
+			}
+		}
 	}
 }
 

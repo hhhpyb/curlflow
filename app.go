@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -99,7 +100,69 @@ func (a *App) BuildCurl(req domain.HttpRequest) string {
 
 // SendRequest executes the HTTP request
 // Note: workDir is now required to save history
-func (a *App) SendRequest(req domain.HttpRequest, workDir string) domain.HttpResponse {
+func (a *App) SendRequest(reqFile domain.RequestFile, workDir string, filename string) domain.HttpResponse {
+	req := reqFile.Data
+
+	// Resolve Auth if Inherit
+	if req.Auth.Type == domain.AuthTypeInherit {
+		var parentAuths []domain.Auth
+
+		// 1. Project Auth (Global Parent)
+		// Use LoadProjectConfig from storage service directly
+		projConfig, err := a.storage.LoadProjectConfig(workDir)
+		if err == nil && projConfig.Auth.Type != "" {
+			parentAuths = append(parentAuths, projConfig.Auth)
+		}
+
+		// 2. Main File Auth (Folder/Group Parent)
+		// Only if we have an ID and we are not the main file itself
+		if reqFile.Meta.ID != "" {
+			summaries, err := a.storage.ListFileSummaries(workDir)
+			if err == nil {
+				// Filter by ID
+				var group []storage.FileSummary
+				for _, s := range summaries {
+					if s.Meta.ID == reqFile.Meta.ID {
+						group = append(group, s)
+					}
+				}
+
+				// Find Main File (shortest name)
+				if len(group) > 0 {
+					sort.Slice(group, func(i, j int) bool {
+						return len(group[i].FileName) < len(group[j].FileName)
+					})
+					mainFileSummary := group[0]
+
+					// If we are NOT the main file, we inherit from it
+					// If filename is empty (new unsaved), we assume we are not the main file unless... wait.
+					// If new unsaved request has generated ID, it won't match.
+					// If we are editing a case (saved), filename matches.
+					if filename != mainFileSummary.FileName {
+						// Load the main file to get its full Auth config
+						mainReqFile, err := a.storage.LoadRequest(filepath.Join(workDir, mainFileSummary.FileName))
+						if err == nil {
+							// Prepend to parentAuths so it takes precedence over Project
+							parentAuths = append([]domain.Auth{mainReqFile.Data.Auth}, parentAuths...)
+						}
+					}
+				}
+			}
+		}
+
+		// Resolve
+		a.runner.ResolveAuth(&req, parentAuths)
+
+		// Resolve Proxy if configured in project
+		projConfig, err = a.storage.LoadProjectConfig(workDir)
+		if err == nil && projConfig.ProxyURL != "" {
+			// Temporary override for this request if we had a way,
+			// but SendRequest uses the service's internal config.
+			// For now, let's stick to the UI implementation as requested.
+			// We can refactor the runner to accept options later if needed.
+		}
+	}
+
 	// Async save to history
 	if workDir != "" {
 		go func() {
@@ -271,20 +334,17 @@ func (a *App) PurgeDeletedFiles(dir string) string {
 }
 
 // GetProjectConfig loads the project configuration for the specified directory.
-func (a *App) GetProjectConfig(dir string) storage.ProjectConfig {
+func (a *App) GetProjectConfig(dir string) domain.ProjectConfig {
 	config, err := a.storage.LoadProjectConfig(dir)
 	if err != nil {
 		fmt.Printf("GetProjectConfig error: %v\n", err)
-		return storage.ProjectConfig{}
+		return domain.ProjectConfig{}
 	}
 	return config
 }
 
-// SaveProjectConfig saves the project configuration (currently just Swagger URL).
-func (a *App) SaveProjectConfig(dir string, url string) string {
-	config := storage.ProjectConfig{
-		SwaggerURL: url,
-	}
+// SaveProjectConfig saves the project configuration.
+func (a *App) SaveProjectConfig(dir string, config domain.ProjectConfig) string {
 	err := a.storage.SaveProjectConfig(dir, config)
 	if err != nil {
 		return fmt.Sprintf("Error saving project config: %v", err)

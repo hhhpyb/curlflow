@@ -19,8 +19,13 @@ export const useSettingsStore = defineStore('settings', {
                 console.error('Failed to load settings:', e);
             }
         },
-        async save() {
+        async save(cfgData?: { proxyUrl: string, insecure: boolean, timeout: number }) {
             try {
+                if (cfgData) {
+                    this.proxyUrl = cfgData.proxyUrl;
+                    this.insecure = cfgData.insecure;
+                    this.timeout = cfgData.timeout;
+                }
                 const cfg = new main.AppConfig({
                     proxyUrl: this.proxyUrl,
                     insecure: this.insecure,

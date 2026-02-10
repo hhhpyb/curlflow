@@ -37,14 +37,7 @@ func main() {
 			OnStartup:        app.startup,
 			OnBeforeClose:    app.beforeClose,
 			Mac: &mac.Options{
-				TitleBar: &mac.TitleBar{
-					TitlebarAppearsTransparent: false,
-					HideTitle:                  false,
-					HideTitleBar:               false,
-					FullSizeContent:            false,
-					UseToolbar:                 false,
-					HideToolbarSeparator:       true,
-				},
+				TitleBar:             mac.TitleBarHiddenInset(),
 				Appearance:           mac.NSAppearanceNameDarkAqua,
 				WebviewIsTransparent: true,
 				WindowIsTranslucent:  true,

@@ -94,8 +94,8 @@ export function SelectWorkDir() {
   return window['go']['main']['App']['SelectWorkDir']();
 }
 
-export function SendRequest(arg1, arg2) {
-  return window['go']['main']['App']['SendRequest'](arg1, arg2);
+export function SendRequest(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SendRequest'](arg1, arg2, arg3);
 }
 
 export function SyncSwagger(arg1, arg2) {

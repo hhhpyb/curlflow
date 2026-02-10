@@ -218,14 +218,11 @@ func (s *Service) PurgeDeletedFiles(dir string) (int, error) {
 	return purgedCount, nil
 }
 
-type ProjectConfig struct {
-	SwaggerURL string `json:"swagger_url"`
-	// 未来可扩展其他字段
-}
-
 // LoadProjectConfig reads the project configuration from dir/.curlflow/project.json.
-func (s *Service) LoadProjectConfig(dir string) (ProjectConfig, error) {
-	config := ProjectConfig{}
+func (s *Service) LoadProjectConfig(dir string) (domain.ProjectConfig, error) {
+	config := domain.ProjectConfig{
+		Auth: domain.Auth{Type: domain.AuthTypeNoAuth},
+	}
 	configPath := filepath.Join(dir, ".curlflow", "project.json")
 
 	data, err := os.ReadFile(configPath)
@@ -244,7 +241,7 @@ func (s *Service) LoadProjectConfig(dir string) (ProjectConfig, error) {
 }
 
 // SaveProjectConfig saves the project configuration to dir/.curlflow/project.json.
-func (s *Service) SaveProjectConfig(dir string, config ProjectConfig) error {
+func (s *Service) SaveProjectConfig(dir string, config domain.ProjectConfig) error {
 	projectDir := filepath.Join(dir, ".curlflow")
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return fmt.Errorf("failed to create project directory: %w", err)

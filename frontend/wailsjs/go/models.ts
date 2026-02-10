@@ -1,11 +1,26 @@
 export namespace domain {
 	
+	export class Auth {
+	    type: string;
+	    data: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new Auth(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.type = source["type"];
+	        this.data = source["data"];
+	    }
+	}
 	export class HttpRequest {
 	    url: string;
 	    method: string;
 	    headers: Record<string, string>;
 	    body: string;
 	    compressed: boolean;
+	    auth: Auth;
 	
 	    static createFrom(source: any = {}) {
 	        return new HttpRequest(source);
@@ -18,7 +33,26 @@ export namespace domain {
 	        this.headers = source["headers"];
 	        this.body = source["body"];
 	        this.compressed = source["compressed"];
+	        this.auth = this.convertValues(source["auth"], Auth);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class HttpResponse {
 	    statusCode: number;
@@ -69,6 +103,44 @@ export namespace domain {
 	        this.param_docs = source["param_docs"];
 	        this.source = source["source"];
 	    }
+	}
+	export class ProjectConfig {
+	    name: string;
+	    swagger_url: string;
+	    auth: Auth;
+	    proxy_url: string;
+	    description: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.swagger_url = source["swagger_url"];
+	        this.auth = this.convertValues(source["auth"], Auth);
+	        this.proxy_url = source["proxy_url"];
+	        this.description = source["description"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class RequestFile {
 	    _meta: MetaData;
@@ -245,18 +317,6 @@ export namespace storage {
 		    }
 		    return a;
 		}
-	}
-	export class ProjectConfig {
-	    swagger_url: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ProjectConfig(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.swagger_url = source["swagger_url"];
-	    }
 	}
 
 }

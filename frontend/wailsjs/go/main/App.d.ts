@@ -21,7 +21,7 @@ export function GetHistoryList(arg1:string):Promise<Array<history.HistoryEntry>>
 
 export function GetLastOpenedProject():Promise<string>;
 
-export function GetProjectConfig(arg1:string):Promise<storage.ProjectConfig>;
+export function GetProjectConfig(arg1:string):Promise<domain.ProjectConfig>;
 
 export function GetRecentProjects():Promise<Array<string>>;
 
@@ -43,7 +43,7 @@ export function SaveConfig(arg1:string,arg2:string,arg3:string):Promise<string>;
 
 export function SaveFullRequest(arg1:string,arg2:string,arg3:domain.RequestFile):Promise<string>;
 
-export function SaveProjectConfig(arg1:string,arg2:string):Promise<string>;
+export function SaveProjectConfig(arg1:string,arg2:domain.ProjectConfig):Promise<string>;
 
 export function SaveRequest(arg1:string,arg2:string,arg3:domain.HttpRequest):Promise<string>;
 
@@ -51,7 +51,7 @@ export function SaveSettings(arg1:main.AppConfig):Promise<string>;
 
 export function SelectWorkDir():Promise<string>;
 
-export function SendRequest(arg1:domain.HttpRequest,arg2:string):Promise<domain.HttpResponse>;
+export function SendRequest(arg1:domain.RequestFile,arg2:string,arg3:string):Promise<domain.HttpResponse>;
 
 export function SyncSwagger(arg1:string,arg2:string):Promise<string>;
 

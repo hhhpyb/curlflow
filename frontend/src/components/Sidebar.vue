@@ -13,10 +13,13 @@ import {
   FolderOpenOutline, DocumentTextOutline, AddOutline,
   CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline,
   ChevronForwardOutline, ChevronDownOutline, FlaskOutline, TrashOutline,
-  CopyOutline, DuplicateOutline, TimeOutline, FolderOutline, CheckmarkOutline, CloseOutline
+  CopyOutline, DuplicateOutline, TimeOutline, FolderOutline, CheckmarkOutline, CloseOutline,
+  SyncOutline, ChevronUpOutline, ChevronDown
 } from '@vicons/ionicons5';
+import { useEnvStore } from '../stores/env';
 
 const store = useRequestStore();
+const envStore = useEnvStore();
 const historyStore = useHistoryStore();
 const message = useMessage();
 const dialog = useDialog();
@@ -207,15 +210,8 @@ const handlePurge = () => {
   });
 };
 
-// Track expanded interface nodes (multi-case groups)
-const expandedNodes = ref<Set<string>>(new Set());
-
 const toggleNode = (fileName: string) => {
-  if (expandedNodes.value.has(fileName)) {
-    expandedNodes.value.delete(fileName);
-  } else {
-    expandedNodes.value.add(fileName);
-  }
+  store.toggleExpand(fileName);
 };
 
 const folderName = computed(() => {
@@ -246,7 +242,8 @@ const handleStartSync = async () => {
   isSyncing.value = true;
   try {
     // Save the URL first
-    await store.saveProjectConfig(store.swaggerUrl.trim());
+    store.projectConfig.swagger_url = store.swaggerUrl.trim();
+    await store.saveProjectConfig();
     // Then import
     await store.importSwagger(store.swaggerUrl.trim());
     showSyncModal.value = false;
@@ -316,95 +313,142 @@ const getMethodClass = (method: string) => {
     default: return 'text-gray-500';
   }
 };
+
+// ==========================================
+// Secondary Toolbar Logic
+// ==========================================
+const envSelectorOptions = computed(() => {
+  return envStore.envList.map(name => ({
+    label: name,
+    key: name
+  }));
+});
+
+const handleEnvSelect = (key: string) => {
+  envStore.setActiveEnv(key);
+  envStore.saveEnvs();
+};
+
+const handleSyncToolbar = async () => {
+  if (!store.workDir) return;
+  
+  if (!store.projectConfig.swagger_url) {
+    // If no URL configured, show the full sync modal to let user input it
+    await store.loadProjectConfig();
+    showSyncModal.value = true;
+    return;
+  }
+
+  // Quick Sync
+  isSyncing.value = true;
+  try {
+    await store.importSwagger(store.projectConfig.swagger_url);
+    message.success('Swagger Synced');
+  } catch (e) {
+    // Error handled in store
+  } finally {
+    isSyncing.value = false;
+  }
+};
 </script>
 
 <template>
-  <div class="main-layout flex h-full w-full overflow-hidden bg-gray-900 border-r border-gray-800">
-    
-    <!-- Activity Bar (Far Left) -->
-    <div class="activity-bar w-11 flex flex-col items-center py-4 bg-gray-900 border-r border-gray-800 z-10 shrink-0">
-      <div 
-        class="icon-btn mb-4" 
-        :class="{ active: activeView === 'collections' }"
-        @click="activeView = 'collections'"
-        title="Collections"
-      >
-        <n-icon :component="FolderOutline" size="20" />
-      </div>
-      
-      <div 
-        class="icon-btn" 
-        :class="{ active: activeView === 'history' }"
-        @click="activeView = 'history'"
-        title="History"
-      >
-        <n-icon :component="TimeOutline" size="20" />
-      </div>
-    </div>
-
-    <!-- Side Panel Content -->
-    <div class="side-panel flex-1 flex flex-col h-full overflow-hidden bg-gray-900 w-64 min-w-[240px]">
-      
-      <!-- View: Collections (File Tree) -->
-      <div v-if="activeView === 'collections'" class="flex flex-col h-full w-full">
-        <!-- Header -->
-        <n-dropdown 
-          trigger="click" 
-          :options="projectOptions" 
-          @select="handleProjectSelect" 
-          placement="bottom-start"
-          class="bg-gray-800 border border-gray-700"
+  <div class="main-layout flex flex-col h-full w-full overflow-hidden bg-gray-900 border-r border-gray-800">
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Activity Bar (Far Left) -->
+      <div class="activity-bar w-11 flex flex-col items-center py-4 bg-gray-900 border-r border-gray-800 z-10 shrink-0">
+        <div 
+          class="icon-btn mb-4" 
+          :class="{ active: activeView === 'collections' }"
+          @click="activeView = 'collections'"
+          title="Collections"
         >
-          <div class="header flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 cursor-pointer hover:bg-gray-800 transition-colors group">
-            <div class="flex items-center gap-2 flex-1 min-w-0">
-              <span class="text-xs font-bold uppercase tracking-wider truncate text-gray-300 group-hover:text-white" :title="store.workDir">
-                {{ folderName }}
-              </span>
-              <n-icon :component="ChevronDownOutline" size="12" class="text-gray-500 group-hover:text-gray-300" />
-            </div>
-          </div>
-        </n-dropdown>
+          <n-icon :component="FolderOutline" size="20" />
+        </div>
+        
+        <div 
+          class="icon-btn" 
+          :class="{ active: activeView === 'history' }"
+          @click="activeView = 'history'"
+          title="History"
+        >
+          <n-icon :component="TimeOutline" size="20" />
+        </div>
+      </div>
 
-        <!-- Actions & Search -->
-        <div class="p-2 border-b border-gray-800/50 shrink-0 flex flex-col gap-2">
-          <n-button secondary block size="small" @click="handleNewRequest" class="justify-start px-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700">
-            <template #icon>
-              <n-icon :component="AddOutline" />
-            </template>
-            New Request
-          </n-button>
-
-          <div class="flex items-center gap-1">
-            <n-input
-              id="sidebar-search-input"
-              v-model:value="store.searchKeyword"
-              size="small"
-              placeholder="Search..."
-              clearable
-              class="bg-gray-800"
+      <!-- Side Panel Content -->
+      <div class="side-panel flex-1 flex flex-col h-full overflow-hidden bg-gray-900 w-64 min-w-[240px]">
+        
+        <!-- View: Collections (File Tree) -->
+        <div v-if="activeView === 'collections'" class="flex flex-col h-full w-full">
+          
+          <!-- Secondary Toolbar -->
+          <div class="flex items-center px-2 py-1 bg-gray-900 border-b border-gray-800 shrink-0 gap-1 h-8">
+            <!-- Environment Selector -->
+            <n-dropdown 
+              trigger="click" 
+              :options="envSelectorOptions" 
+              @select="handleEnvSelect" 
+              placement="bottom-start"
+              class="bg-gray-800 border border-gray-700"
             >
-              <template #prefix>
-                <n-icon :component="SearchOutline" />
-              </template>
-            </n-input>
-            <n-button
-              secondary
-              size="small"
-              @click="toggleShowDeleted"
-              :class="store.showDeleted ? 'text-blue-400 bg-blue-500/10' : 'text-gray-500'"
+              <div 
+                class="flex items-center gap-1.5 px-1.5 py-0.5 rounded cursor-pointer hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Select Environment"
+              >
+                <n-icon :component="EyeOutline" size="14" />
+                <span class="text-[11px] font-mono font-medium max-w-[80px] truncate">
+                  {{ envStore.activeEnvName || 'No Env' }}
+                </span>
+              </div>
+            </n-dropdown>
+
+            <div class="w-px h-3 bg-gray-700 mx-1"></div>
+
+            <!-- Tree Actions -->
+            <n-button 
+              text 
+              size="tiny" 
+              @click="store.expandAll()" 
+              title="Expand All" 
+              class="text-gray-500 hover:text-gray-300 p-0.5"
+            >
+              <template #icon><n-icon :component="ChevronDown" size="14" /></template>
+            </n-button>
+            
+            <n-button 
+              text 
+              size="tiny" 
+              @click="store.collapseAll()" 
+              title="Collapse All" 
+              class="text-gray-500 hover:text-gray-300 p-0.5"
+            >
+              <template #icon><n-icon :component="ChevronUpOutline" size="14" /></template>
+            </n-button>
+
+            <!-- Spacer -->
+            <div class="flex-1"></div>
+
+            <!-- Quick Sync -->
+            <n-button 
+              text 
+              size="tiny" 
+              @click="handleSyncToolbar" 
+              :disabled="isSyncing"
+              title="Sync Swagger" 
+              class="text-gray-500 hover:text-blue-400 p-0.5"
             >
               <template #icon>
-                <n-icon :component="store.showDeleted ? EyeOutline : EyeOffOutline" />
+                <n-icon :component="SyncOutline" size="14" :class="{ 'animate-spin': isSyncing }" />
               </template>
             </n-button>
           </div>
-        </div>
 
-        <!-- Three-Level File Tree -->
-        <div class="flex-1 overflow-hidden mt-1">
+          <!-- Three-Level File Tree -->
+          <div class="flex-1 overflow-hidden mt-0">
           <n-scrollbar trigger="hover">
             <div v-if="Object.keys(store.fileTree).length > 0" class="pb-4">
-              <n-collapse :default-expanded-names="Object.keys(store.fileTree)" arrow-placement="right">
+              <n-collapse :expanded-names="Array.from(store.expandedKeys)" @update:expanded-names="(names) => store.expandedKeys = new Set(names)" arrow-placement="right">
                 <!-- Level 1: Folder (Tag) -->
                 <n-collapse-item
                   v-for="(nodes, folder) in store.fileTree"
@@ -440,7 +484,7 @@ const getMethodClass = (method: string) => {
                                               class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors shrink-0 z-10"
                                               @click.stop="toggleNode(node.mainFile.fileName)"
                                             >
-                                              <n-icon :component="expandedNodes.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
+                                              <n-icon :component="store.expandedKeys.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
                                             </div>
                                             <div v-else class="w-[18px] shrink-0" />
                       
@@ -460,7 +504,7 @@ const getMethodClass = (method: string) => {
                                             </div>
                                           </div>
                       <!-- Level 3: Test Cases (Children) -->
-                      <div v-if="expandedNodes.has(node.mainFile.fileName) && node.children.length > 0" class="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-gray-800 pl-1">
+                      <div v-if="store.expandedKeys.has(node.mainFile.fileName) && node.children.length > 0" class="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-gray-800 pl-1">
                                             <div
                                               v-for="child in node.children"
                                               :key="child.fileName"
@@ -502,22 +546,6 @@ const getMethodClass = (method: string) => {
               <n-empty size="small" description="No results found" />
             </div>
           </n-scrollbar>
-        </div>
-
-        <!-- Footer Sync Action -->
-        <div class="p-4 border-t border-gray-800 shrink-0 bg-gray-900/50">
-          <n-button
-            secondary
-            block
-            size="medium"
-            @click="handleOpenSync"
-            class="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30"
-          >
-            <template #icon>
-              <n-icon :component="CloudDownloadOutline" />
-            </template>
-            Sync Swagger
-          </n-button>
         </div>
       </div>
 
@@ -608,6 +636,7 @@ const getMethodClass = (method: string) => {
       :on-clickoutside="() => showDropdown = false"
       @select="handleSelect"
     />
+    </div>
   </div>
 </template>
 

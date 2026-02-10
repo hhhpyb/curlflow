@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
-import { NTable, NInput, NButton, NIcon } from 'naive-ui';
-import { TrashOutline } from '@vicons/ionicons5';
+import { ref, watch, nextTick, computed } from 'vue';
+import { NTable, NInput, NButton, NIcon, NTag } from 'naive-ui';
+import { TrashOutline, LockClosedOutline } from '@vicons/ionicons5';
+import { useRequestStore } from '../stores/request';
 
 interface HeaderRow {
   key: string;
@@ -18,8 +19,12 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: Record<string, string>): void;
 }>();
 
+const store = useRequestStore();
 const headersList = ref<HeaderRow[]>([]);
 const isInternalChange = ref(false);
+
+// Computed Auth Headers
+const authHeaders = computed(() => store.authHeaders);
 
 // 生成简易唯一标识
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -113,6 +118,24 @@ const removeRow = (index: number) => {
         </tr>
       </thead>
       <tbody>
+        <!-- Computed Auth Headers -->
+        <tr v-for="(val, key) in authHeaders" :key="key" class="bg-gray-800/30">
+          <td class="p-0 pl-2 align-middle">
+            <span class="font-mono text-purple-400 flex items-center gap-1">
+              {{ key }}
+              <n-icon size="12" :component="LockClosedOutline" title="Generated from Auth" />
+            </span>
+          </td>
+          <td class="p-0 pl-2 align-middle">
+            <span class="text-gray-400 italic">{{ val }}</span>
+          </td>
+          <td class="align-middle text-gray-500 text-xs px-3">
+            Auto-generated from Auth
+          </td>
+          <td></td>
+        </tr>
+
+        <!-- Manual Headers -->
         <tr v-for="(row, index) in headersList" :key="row.id">
           <td class="p-0">
             <n-input
