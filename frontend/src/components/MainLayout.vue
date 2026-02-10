@@ -1,17 +1,7 @@
 <script setup lang="ts">
 import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
-import {useMessage, useDialog, NTabs, NTabPane, NDynamicInput, NButton, NIcon, NInput, NModal, NCard, NSpace, NSelect, NBadge, NSplit} from 'naive-ui'
-import {
-  CloudDownloadOutline,
-  PlayOutline,
-  SaveOutline,
-  SettingsOutline,
-  ListOutline,
-  InformationCircleOutline,
-  PencilOutline,
-  CloudOfflineOutline,
-  CloudDoneOutline
-} from '@vicons/ionicons5'
+import {NBadge, NButton, NIcon, NInput, NSelect, NSplit, NTabPane, NTabs, useDialog, useMessage} from 'naive-ui'
+import {PencilOutline, PlayOutline, SaveOutline, SettingsOutline} from '@vicons/ionicons5'
 import CodeEditor from './CodeEditor.vue'
 import QueryParamsEditor from './QueryParamsEditor.vue'
 import PathVariablesEditor from './PathVariablesEditor.vue'
@@ -28,7 +18,7 @@ import ProjectSettingsModal from './ProjectSettingsModal.vue'
 import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
-import { useWebSocketStore } from '../stores/websocket'
+import {useWebSocketStore} from '../stores/websocket'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -64,7 +54,7 @@ onMounted(async () => {
 
   // Load global settings
   settingsStore.load()
-  
+
   // Restore horizontal split size
   const savedSize = localStorage.getItem('horizontal-split-size')
   if (savedSize) {
@@ -74,7 +64,7 @@ onMounted(async () => {
   const restored = await store.init()
   if (restored) {
     if (store.workDir) {
-       await envStore.loadEnvs()
+      await envStore.loadEnvs()
     }
   }
 })
@@ -94,11 +84,11 @@ const startDrag = () => {
 
 const onDrag = (e: MouseEvent) => {
   if (!isDragging.value || !containerRef.value) return
-  
+
   const containerRect = containerRef.value.getBoundingClientRect()
   const relativeY = e.clientY - containerRect.top
   const percentage = (relativeY / containerRect.height) * 100
-  
+
   // Limit the resizing range (e.g., between 10% and 90%)
   if (percentage >= 10 && percentage <= 90) {
     requestHeightPercent.value = percentage
@@ -145,11 +135,11 @@ const handleMetaSave = async (data: { summary: string; tag: string; description:
       tag: data.tag,
       description: data.description
     })
-    
+
     // 2. Perform Save
     // saveCurrent will now handle unique filename generation if currentFileName is empty
     await store.saveCurrent()
-    
+
     // 3. Close Modal
     showMetaModal.value = false
 
@@ -195,14 +185,14 @@ const handleEnvChange = (val: string) => {
 }
 
 const methodOptions = [
-  { label: 'GET', value: 'GET' },
-  { label: 'POST', value: 'POST' },
-  { label: 'PUT', value: 'PUT' },
-  { label: 'DELETE', value: 'DELETE' },
-  { label: 'PATCH', value: 'PATCH' },
-  { label: 'HEAD', value: 'HEAD' },
-  { label: 'OPTIONS', value: 'OPTIONS' },
-  { label: 'WS', value: 'WS', style: { color: '#a78bfa', fontWeight: 'bold' } }
+  {label: 'GET', value: 'GET'},
+  {label: 'POST', value: 'POST'},
+  {label: 'PUT', value: 'PUT'},
+  {label: 'DELETE', value: 'DELETE'},
+  {label: 'PATCH', value: 'PATCH'},
+  {label: 'HEAD', value: 'HEAD'},
+  {label: 'OPTIONS', value: 'OPTIONS'},
+  {label: 'WS', value: 'WS', style: {color: '#a78bfa', fontWeight: 'bold'}}
 ]
 
 const handleRequestBaseChange = () => {
@@ -212,14 +202,14 @@ const handleRequestBaseChange = () => {
 // ================= Env Replacement Logic =================
 const possibleReplacement = ref<string | null>(null)
 watch(
-  () => store.curlCode,
-  (newCode) => {
-    if (newCode && newCode.trim().length > 10) {
-      possibleReplacement.value = envStore.reverseReplace(newCode)
-    } else {
-      possibleReplacement.value = null
+    () => store.curlCode,
+    (newCode) => {
+      if (newCode && newCode.trim().length > 10) {
+        possibleReplacement.value = envStore.reverseReplace(newCode)
+      } else {
+        possibleReplacement.value = null
+      }
     }
-  }
 )
 
 const applyReplacement = () => {
@@ -285,7 +275,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     handleSave()
   }
-  
+
   // Run: Ctrl+Enter or Cmd+Enter
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     if (!store.isLoading) {
@@ -298,11 +288,11 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
 onMounted(async () => {
   // Load global settings
   settingsStore.load()
-  
+
   const restored = await store.init()
   if (restored) {
     if (store.workDir) {
-       await envStore.loadEnvs()
+      await envStore.loadEnvs()
     }
   }
 
@@ -321,274 +311,286 @@ onUnmounted(() => {
   <div class="h-screen w-screen bg-gray-900 text-gray-200 overflow-hidden">
     <!-- Main Content Split Layout -->
     <div class="h-full w-full overflow-hidden">
-      <n-split direction="horizontal" v-model:size="horizontalSplitSize" :min="0.15" :max="0.4" @drag-end="handleHorizontalDragEnd" class="h-full">
+      <n-split direction="horizontal" v-model:size="horizontalSplitSize" :min="0.15" :max="0.4"
+               @drag-end="handleHorizontalDragEnd" class="h-full">
         <template #1>
           <div class="split-pane sidebar-container h-full overflow-hidden">
-            <Sidebar />
+            <Sidebar/>
           </div>
         </template>
         <template #2>
-          <div class="split-pane content-container h-full p-4 pt-0 flex flex-col gap-4 min-w-0 overflow-hidden bg-[#1e1e1e]">
+          <div
+              class="split-pane content-container h-full p-4 pt-0 flex flex-col gap-4 min-w-0 overflow-hidden bg-[#1e1e1e]">
             <!-- Drag Region for Main Content (Optional, enables dragging from empty space above tabs if needed) -->
             <div class="w-full h-2 shrink-0" style="--wails-draggable: drag"></div>
 
             <!-- Main Content Area -->
             <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
-                <!-- Request Section (Top) -->
-                <div class="flex flex-col gap-2 min-h-0" :style="store.request.method === 'WS' ? { height: '100%' } : { height: `${requestHeightPercent}%` }">
-                  
-                  <!-- New Refactored Header -->
-                  <div class="flex flex-row items-center justify-between shrink-0 h-9 px-1">
-                    <!-- Left Side: Title & Primary Actions -->
-                    <div class="flex items-center gap-2">
-                      <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+              <!-- Request Section (Top) -->
+              <div class="flex flex-col gap-2 min-h-0"
+                   :style="store.request.method === 'WS' ? { height: '100%' } : { height: `${requestHeightPercent}%` }">
+
+                <!-- New Refactored Header -->
+                <div class="flex flex-row items-center justify-between shrink-0 h-9 px-1">
+                  <!-- Left Side: Title & Primary Actions -->
+                  <div class="flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+
+                    <!-- Combined Request Info Area -->
+                    <div
+                        class="flex items-center gap-2 cursor-pointer hover:bg-white/5 px-2 py-1 rounded transition-colors group"
+                        @click="showMetaModal = true"
+                    >
                       <span class="text-[11px] font-bold font-mono text-gray-500 uppercase tracking-widest select-none">Request</span>
-                      
-                      <div class="w-px h-3 bg-gray-700/50 mx-1"></div>
-            
-                      <!-- Save Button -->
-                      <n-tooltip trigger="hover">
-                        <template #trigger>
-                          <n-button quaternary circle size="small" @click="handleSave" class="text-gray-400 hover:text-white">
-                            <template #icon><n-icon :component="SaveOutline" /></template>
-                          </n-button>
-                        </template>
-                        Save Request (Cmd+S)
-                      </n-tooltip>
-            
-                                <!-- Request Info (Meta) -->
-                                <n-tooltip v-if="store.currentFileName" trigger="hover">
-                                  <template #trigger>
-                                    <n-button 
-                                      quaternary 
-                                      circle 
-                                      size="small" 
-                                      @click="showMetaModal = true" 
-                                      class="text-gray-400 hover:text-blue-400"
-                                    >
-                                      <template #icon><n-icon :component="InformationCircleOutline" /></template>
-                                    </n-button>
-                                  </template>
-                                  Request Info & Tags
-                                </n-tooltip>            
-                      <span v-if="store.meta?.summary" class="ml-2 text-xs text-gray-500 truncate max-w-[200px] italic">
-                        {{ store.meta.summary }}
+                      <div class="w-px h-3 bg-gray-700/50"></div>
+                      <span v-if="store.meta?.summary" class="text-xs text-gray-300 truncate max-w-[260px] font-medium">
+                           {{ store.meta.summary }}
+                         </span>
+                      <span v-else class="text-xs text-gray-500 truncate max-w-[200px] italic">
+                           {{ store.currentFileName ? store.currentFileName.replace('.json', '') : 'Untitled' }}
                       </span>
+                      <n-icon :component="PencilOutline" size="12" class="text-blue-400/60" />
                     </div>
-            
-                    <!-- Right Side: Global Settings -->
-                    <div class="flex items-center gap-2">
-                      <n-tooltip trigger="hover">
-                        <template #trigger>
-                          <n-button quaternary circle size="small" @click="showProjectSettingsModal = true" class="text-gray-400 hover:text-gray-200">
-                            <template #icon><n-icon :component="SettingsOutline" /></template>
-                          </n-button>
-                        </template>
-                        Project Settings
-                      </n-tooltip>
-                    </div>
+
+                    <div class="w-px h-3 bg-gray-700/50 mx-1"></div>
+
+                    <!-- Save Button -->
+                    <n-tooltip trigger="hover">
+                      <template #trigger>
+                        <n-button quaternary circle size="small" @click="handleSave"
+                                  class="text-gray-400 hover:text-white">
+                          <template #icon>
+                            <n-icon :component="SaveOutline"/>
+                          </template>
+                        </n-button>
+                      </template>
+                      Save Request (Cmd+S)
+                    </n-tooltip>
                   </div>
-                  
-                  <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
-                    <!-- Optional CaseBar -->
-                    <CaseBar v-if="store.meta && store.meta.id" class="mb-3" />
-            
-                    <!-- URL Bar (Optimized) -->
-                    <div class="flex items-center gap-2 mb-4 shrink-0">
-                      <n-select
+
+                  <!-- Right Side: Global Settings -->
+                  <div class="flex items-center gap-2">
+                    <n-tooltip trigger="hover">
+                      <template #trigger>
+                        <n-button quaternary circle size="small" @click="showProjectSettingsModal = true"
+                                  class="text-gray-400 hover:text-gray-200">
+                          <template #icon>
+                            <n-icon :component="SettingsOutline"/>
+                          </template>
+                        </n-button>
+                      </template>
+                      Project Settings
+                    </n-tooltip>
+                  </div>
+                </div>
+
+                <div
+                    class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
+                  <!-- Optional CaseBar -->
+                  <CaseBar v-if="store.meta && store.meta.id" class="mb-3"/>
+
+                  <!-- URL Bar (Optimized) -->
+                  <div class="flex items-center gap-2 mb-4 shrink-0">
+                    <n-select
                         v-model:value="store.request.method"
                         :options="methodOptions"
                         style="width: 100px"
                         size="medium"
                         @update:value="handleRequestBaseChange"
-                      />
-                      
-                      <n-input
+                    />
+
+                    <n-input
                         v-model:value="store.request.url"
                         placeholder="Enter URL or paste curl"
                         @update:value="handleRequestBaseChange"
                         class="flex-1 font-mono"
                         size="medium"
-                      >
-                        <template #suffix>
-                          <n-button 
-                            text 
-                            class="text-green-500 hover:text-green-400 mr-1" 
-                            @click="handleRun" 
+                    >
+                      <template #suffix>
+                        <n-button
+                            text
+                            class="text-green-500 hover:text-green-400 mr-1"
+                            @click="handleRun"
                             :loading="store.isLoading"
                             title="Run Request (Cmd+Enter)"
-                          >
-                              <template #icon><n-icon :component="PlayOutline" size="20" /></template>
-                          </n-button>
+                        >
+                          <template #icon>
+                            <n-icon :component="PlayOutline" size="20"/>
+                          </template>
+                        </n-button>
+                      </template>
+                    </n-input>
+                  </div>
+
+                  <!-- WebSocket Panel (Conditional) -->
+
+                  <div v-if="store.request.method === 'WS'"
+                       class="flex-1 flex flex-col min-h-0 bg-[#1e1e1e] rounded overflow-hidden">
+                    <WebSocketPanel
+                        :requestId="store.meta?.id || 'temp-session'"
+                        :request="store.request"
+                    />
+                  </div>
+
+                  <!-- HTTP Request Tabs (Conditional) -->
+                  <div v-else-if="store.request" class="flex-1 flex flex-col min-h-0">
+                    <n-tabs
+                        v-model:value="store.activeEditorTab"
+                        type="line"
+                        size="small"
+                        class="flex-1 flex flex-col overflow-hidden"
+                        display-directive="show"
+                        pane-style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
+                    >
+                      <!-- Tab 1: Path -->
+                      <n-tab-pane name="Path">
+                        <template #tab>
+                          <div class="flex items-center gap-1">
+                            Path
+                            <n-badge
+                                :value="Object.keys(store.pathParams).length"
+                                :show="Object.keys(store.pathParams).length > 0"
+                                type="info"
+                                :offset="[4, -4]"
+                                size="small"
+                            />
+                          </div>
                         </template>
-                      </n-input>
-                    </div>
-            
-                    <!-- WebSocket Panel (Conditional) -->
-            
-                <div v-if="store.request.method === 'WS'" class="flex-1 flex flex-col min-h-0 bg-[#1e1e1e] rounded overflow-hidden">
-                  <WebSocketPanel 
-                    :requestId="store.meta?.id || 'temp-session'" 
-                    :request="store.request"
-                  />
-                </div>
-
-                <!-- HTTP Request Tabs (Conditional) -->
-                <div v-else-if="store.request" class="flex-1 flex flex-col min-h-0">
-                  <n-tabs
-                    v-model:value="store.activeEditorTab"
-                    type="line"
-                    size="small"
-                    class="flex-1 flex flex-col overflow-hidden"
-                    display-directive="show"
-                    pane-style="height: 100%; overflow: hidden; display: flex; flex-direction: column;"
-                  >
-                    <!-- Tab 1: Path -->
-                    <n-tab-pane name="Path">
-                      <template #tab>
-                        <div class="flex items-center gap-1">
-                          Path
-                          <n-badge 
-                            :value="Object.keys(store.pathParams).length" 
-                            :show="Object.keys(store.pathParams).length > 0" 
-                            type="info"
-                            :offset="[4, -4]"
-                            size="small"
+                        <div class="py-2 h-full overflow-auto">
+                          <PathVariablesEditor
+                              :url="store.request.url"
+                              v-model:modelValue="store.pathParams"
+                              :meta="store.meta"
                           />
                         </div>
-                      </template>
-                      <div class="py-2 h-full overflow-auto">
-                        <PathVariablesEditor
-                          :url="store.request.url"
-                          v-model:modelValue="store.pathParams"
-                          :meta="store.meta"
-                        />
-                      </div>
-                    </n-tab-pane>
+                      </n-tab-pane>
 
-                    <!-- Tab 2: Query -->
-                    <n-tab-pane name="Params" tab="Params">
-                      <div class="py-2 h-full overflow-auto">
-                        <QueryParamsEditor
-                          v-model:url="store.request.url"
-                          :meta="store.meta"
-                          @update:url="handleRequestBaseChange"
-                        />
-                      </div>
-                    </n-tab-pane>
-
-                    <!-- Tab Auth -->
-                    <n-tab-pane name="Auth">
-                      <template #tab>
-                        <div class="flex items-center gap-1">
-                          Auth
-                          <div v-if="store.request.auth && store.request.auth.type !== 'noauth'" class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                      <!-- Tab 2: Query -->
+                      <n-tab-pane name="Params" tab="Params">
+                        <div class="py-2 h-full overflow-auto">
+                          <QueryParamsEditor
+                              v-model:url="store.request.url"
+                              :meta="store.meta"
+                              @update:url="handleRequestBaseChange"
+                          />
                         </div>
-                      </template>
-                      <div class="py-2 h-full overflow-auto">
-                        <AuthEditor v-model:auth="store.request.auth" :show-inherit="true" />
-                      </div>
-                    </n-tab-pane>
+                      </n-tab-pane>
 
-                    <!-- Tab 3: Headers -->
-                    <n-tab-pane name="Headers" tab="Headers">
-                      <div class="py-2 h-full overflow-auto">
-                        <HeadersEditor
-                          v-model:modelValue="store.request.headers"
-                          :meta="store.meta"
-                          @update:modelValue="handleRequestBaseChange"
-                        />
-                      </div>
-                    </n-tab-pane>
-
-                    <!-- Tab 3: Body -->
-                    <n-tab-pane name="Body" tab="Body">
-                      <div class="flex flex-col h-full pt-2 gap-2">
-                        <div class="flex justify-end px-1">
-                          <n-button size="tiny" secondary type="info" @click="formatBody">
-                            Format JSON
-                          </n-button>
+                      <!-- Tab Auth -->
+                      <n-tab-pane name="Auth">
+                        <template #tab>
+                          <div class="flex items-center gap-1">
+                            Auth
+                            <div v-if="store.request.auth && store.request.auth.type !== 'noauth'"
+                                 class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                          </div>
+                        </template>
+                        <div class="py-2 h-full overflow-auto">
+                          <AuthEditor v-model:auth="store.request.auth" :show-inherit="true"/>
                         </div>
-                        <div class="flex-1 min-h-0">
+                      </n-tab-pane>
+
+                      <!-- Tab 3: Headers -->
+                      <n-tab-pane name="Headers" tab="Headers">
+                        <div class="py-2 h-full overflow-auto">
+                          <HeadersEditor
+                              v-model:modelValue="store.request.headers"
+                              :meta="store.meta"
+                              @update:modelValue="handleRequestBaseChange"
+                          />
+                        </div>
+                      </n-tab-pane>
+
+                      <!-- Tab 3: Body -->
+                      <n-tab-pane name="Body" tab="Body">
+                        <div class="flex flex-col h-full pt-2 gap-2">
+                          <div class="flex justify-end px-1">
+                            <n-button size="tiny" secondary type="info" @click="formatBody">
+                              Format JSON
+                            </n-button>
+                          </div>
+                          <div class="flex-1 min-h-0">
+                            <CodeEditor
+                                :model-value="store.request.body"
+                                language="json"
+                                height="100%"
+                                @update:model-value="handleBodyChange"
+                            />
+                          </div>
+                        </div>
+                      </n-tab-pane>
+
+                      <!-- Tab 4: Docs -->
+                      <n-tab-pane v-if="store.request.method !== 'GET'" name="Docs" tab="Docs">
+                        <div class="py-2 h-full overflow-auto">
+                          <BodyDocsViewer
+                              :body-json="store.request.body"
+                              :param-docs="store.meta?.param_docs || {}"
+                          />
+                        </div>
+                      </n-tab-pane>
+
+                      <!-- Tab 5: Raw Curl -->
+                      <n-tab-pane name="Curl" tab="Curl">
+                        <div class="h-full pt-2 flex flex-col gap-2">
+                          <div class="flex justify-end px-1 gap-2">
+                            <n-button size="tiny" secondary type="success" @click="copyRealCurl">
+                              <template #icon>
+                                <n-icon>
+                                  <SaveOutline/>
+                                </n-icon>
+                              </template>
+                              Copy with Env
+                            </n-button>
+                          </div>
+                          <n-alert v-if="possibleReplacement" type="info" show-icon class="mb-1">
+                            Detected values matching environment variables.
+                            <n-button size="tiny" type="primary" secondary @click="applyReplacement" class="ml-2">
+                              Replace with {{ envStore.activeEnvName }}
+                            </n-button>
+                          </n-alert>
                           <CodeEditor
-                            :model-value="store.request.body"
-                            language="json"
-                            height="100%"
-                            @update:model-value="handleBodyChange"
+                              :model-value="store.curlCode"
+                              language="shell"
+                              height="100%"
+                              @update:model-value="handleCurlChange"
                           />
                         </div>
-                      </div>
-                    </n-tab-pane>
-
-                    <!-- Tab 4: Docs -->
-                    <n-tab-pane v-if="store.request.method !== 'GET'" name="Docs" tab="Docs">
-                      <div class="py-2 h-full overflow-auto">
-                        <BodyDocsViewer 
-                          :body-json="store.request.body" 
-                          :param-docs="store.meta?.param_docs || {}" 
-                        />
-                      </div>
-                    </n-tab-pane>
-
-                    <!-- Tab 5: Raw Curl -->
-                    <n-tab-pane name="Curl" tab="Curl">
-                      <div class="h-full pt-2 flex flex-col gap-2">
-                        <div class="flex justify-end px-1 gap-2">
-                          <n-button size="tiny" secondary type="success" @click="copyRealCurl">
-                            <template #icon>
-                              <n-icon><SaveOutline /></n-icon>
-                            </template>
-                            Copy with Env
-                          </n-button>
-                        </div>
-                        <n-alert v-if="possibleReplacement" type="info" show-icon class="mb-1">
-                          Detected values matching environment variables.
-                          <n-button size="tiny" type="primary" secondary @click="applyReplacement" class="ml-2">
-                            Replace with {{ envStore.activeEnvName }}
-                          </n-button>
-                        </n-alert>
-                        <CodeEditor
-                          :model-value="store.curlCode"
-                          language="shell"
-                          height="100%"
-                          @update:model-value="handleCurlChange"
-                        />
-                      </div>
-                    </n-tab-pane>
-                  </n-tabs>
+                      </n-tab-pane>
+                    </n-tabs>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Resizer Handle -->
-            <div 
-              v-if="store.request.method !== 'WS'"
-              class="h-2 w-full hover:bg-blue-500/50 cursor-row-resize flex items-center justify-center group transition-colors my-1 shrink-0"
-              @mousedown="startDrag"
-            >
-              <div class="w-10 h-1 rounded-full bg-gray-700 group-hover:bg-blue-400 transition-colors"></div>
-            </div>
+              <!-- Resizer Handle -->
+              <div
+                  v-if="store.request.method !== 'WS'"
+                  class="h-2 w-full hover:bg-blue-500/50 cursor-row-resize flex items-center justify-center group transition-colors my-1 shrink-0"
+                  @mousedown="startDrag"
+              >
+                <div class="w-10 h-1 rounded-full bg-gray-700 group-hover:bg-blue-400 transition-colors"></div>
+              </div>
 
-            <!-- Response Section (Bottom) -->
-            <div v-if="store.request.method !== 'WS'" class="flex-1 min-h-0 overflow-hidden mt-1">
-              <ResponsePanel class="h-full rounded-lg border border-gray-700/50" />
+              <!-- Response Section (Bottom) -->
+              <div v-if="store.request.method !== 'WS'" class="flex-1 min-h-0 overflow-hidden mt-1">
+                <ResponsePanel class="h-full rounded-lg border border-gray-700/50"/>
+              </div>
             </div>
           </div>
-        </div>
-      </template>
-    </n-split>
+        </template>
+      </n-split>
 
-    <!-- Modals -->
-    <RequestMetaModal
-      v-model:show="showMetaModal"
-      :initial-data="store.meta"
-      :current-file-name="store.currentFileName"
-      :existing-tags="store.folderOptions"
-      @save="handleMetaSave"
-    />
+      <!-- Modals -->
+      <RequestMetaModal
+          v-model:show="showMetaModal"
+          :initial-data="store.meta"
+          :current-file-name="store.currentFileName"
+          :existing-tags="store.folderOptions"
+          @save="handleMetaSave"
+      />
 
-    <ProjectSettingsModal v-model:show="showProjectSettingsModal" />
-    <SettingsModal v-model:show="showSettingsModal" />
+      <ProjectSettingsModal v-model:show="showProjectSettingsModal"/>
+      <SettingsModal v-model:show="showSettingsModal"/>
     </div>
   </div>
 </template>
@@ -598,9 +600,11 @@ onUnmounted(() => {
   flex: 1;
   height: 0;
 }
+
 :deep(.n-tab-pane) {
   height: 100%;
 }
+
 .split-pane {
   width: 100%;
 }
