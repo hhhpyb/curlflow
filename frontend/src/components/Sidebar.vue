@@ -14,7 +14,7 @@ import {
   CloudDownloadOutline, EyeOutline, EyeOffOutline, SearchOutline,
   ChevronForwardOutline, ChevronDownOutline, FlaskOutline, TrashOutline,
   CopyOutline, DuplicateOutline, TimeOutline, FolderOutline, CheckmarkOutline, CloseOutline,
-  SyncOutline, ChevronUpOutline, ChevronDown
+  SyncOutline, ChevronUpOutline, ChevronDown, DesktopOutline
 } from '@vicons/ionicons5';
 import { useEnvStore } from '../stores/env';
 
@@ -27,100 +27,10 @@ const dialog = useDialog();
 // Sidebar View Mode: 'collections' | 'history'
 const activeView = ref<'collections' | 'history'>('collections');
 
-// ==========================================
-// Project Management Logic
-// ==========================================
-const recentProjects = ref<string[]>([]);
-
-const fetchRecentProjects = async () => {
-  try {
-    const list = await GetRecentProjects();
-    recentProjects.value = list || [];
-  } catch (e) {
-    console.error(e);
-  }
-};
-
-const handleRemoveProject = async (path: string, e: Event) => {
-  e.stopPropagation();
-  try {
-    await RemoveProject(path);
-    await fetchRecentProjects();
-    message.success('Project removed from history');
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-const projectOptions = computed<DropdownOption[]>(() => {
-  const options: DropdownOption[] = recentProjects.value.map(path => {
-    const name = path.split(/[\\/]/).pop() || path;
-    const isCurrent = store.workDir === path;
-    
-    return {
-      key: path,
-      label: () => h('div', { 
-        class: 'flex items-center justify-between w-full min-w-[300px] py-1 group/item',
-      }, [
-        h('div', { class: 'flex items-center gap-3 flex-1 min-w-0' }, [
-          // Checkmark or Placeholder
-          isCurrent 
-            ? h(NIcon, { component: CheckmarkOutline, class: 'text-blue-500 shrink-0', size: '16' }) 
-            : h('div', { class: 'w-4 shrink-0' }),
-          
-          // Text Content
-          h('div', { class: 'flex flex-col min-w-0 flex-1 leading-tight' }, [
-            h('span', { class: 'text-[13px] font-semibold truncate text-gray-200' }, name),
-            h('span', { class: 'text-[10px] text-gray-500 truncate mt-0.5 font-mono opacity-80' }, path),
-          ])
-        ]),
-
-        // Actions container with fixed width to prevent overlap
-        h('div', { class: 'w-8 flex justify-end shrink-0 ml-2' }, [
-          h(NButton, { 
-            text: true, 
-            size: 'tiny',
-            class: 'opacity-0 group-hover/item:opacity-100 transition-opacity hover:text-red-400 text-gray-500 p-1',
-            onClick: (e: MouseEvent) => {
-              e.stopPropagation();
-              handleRemoveProject(path, e);
-            }
-          }, { icon: () => h(NIcon, { component: CloseOutline, size: '14' }) })
-        ])
-      ])
-    };
-  });
-
-  // Divider
-  if (options.length > 0) {
-    options.push({ type: 'divider', key: 'd1' });
-  }
-
-  // Open New Option
-  options.push({
-    label: 'Open Folder...',
-    key: 'open-folder',
-    icon: renderIcon(FolderOpenOutline)
-  });
-
-  return options;
-});
-
-const handleProjectSelect = async (key: string) => {
-  if (key === 'open-folder') {
-    await store.chooseDir();
-    await fetchRecentProjects(); // Refresh list after picking
-  } else {
-    // Switch project
-    await store.openProject(key);
-    await fetchRecentProjects(); // Refresh list (move to top)
-  }
-};
-
 onMounted(() => {
   // Setup event listeners for history
   historyStore.setupListeners();
-  fetchRecentProjects(); // Load projects on mount
+  store.fetchRecentProjects(); // Load projects on mount
 });
 
 // Watch for workDir changes to load history
@@ -350,10 +260,79 @@ const handleSyncToolbar = async () => {
     isSyncing.value = false;
   }
 };
+
+// ==========================================
+// Project Dropdown Custom Rendering
+// ==========================================
+const renderProjectLabel = (option: any) => {
+  if (option.type === 'divider') return null;
+
+  // Render "Open Folder..." with its icon
+  if (option.key === 'open-folder') {
+    return h('div', { class: 'flex items-center gap-2 py-1' }, [
+      h(NIcon, { component: FolderOpenOutline, class: 'text-gray-400' }),
+      h('span', { class: 'font-medium' }, option.label)
+    ]);
+  }
+
+  const isCurrent = store.workDir === option.path;
+
+  return h('div', { 
+    class: 'flex items-center justify-between w-full min-w-[300px] py-1 group/item',
+  }, [
+    h('div', { class: 'flex items-center gap-3 flex-1 min-w-0' }, [
+      isCurrent 
+        ? h(NIcon, { component: CheckmarkOutline, class: 'text-blue-500 shrink-0', size: '16' }) 
+        : h('div', { class: 'w-4 shrink-0' }),
+      h('div', { class: 'flex flex-col min-w-0 flex-1 leading-tight' }, [
+        h('span', { class: 'text-[13px] font-semibold truncate text-gray-200' }, option.label),
+        h('span', { class: 'text-[10px] text-gray-500 truncate mt-0.5 font-mono opacity-80' }, option.path),
+      ])
+    ]),
+    h('div', { class: 'w-8 flex justify-end shrink-0 ml-2' }, [
+      h(NButton, { 
+        text: true, 
+        size: 'tiny',
+        class: 'opacity-0 group-hover/item:opacity-100 transition-opacity hover:text-red-400 text-gray-500 p-1',
+        onClick: (e: MouseEvent) => {
+          e.stopPropagation();
+          store.removeProject(option.path);
+        }
+      }, { icon: () => h(NIcon, { component: CloseOutline, size: '14' }) })
+    ])
+  ]);
+};
 </script>
 
 <template>
-  <div class="main-layout flex flex-col h-full w-full overflow-hidden bg-gray-900 border-r border-gray-800">
+  <div class="flex flex-col h-full w-full overflow-hidden bg-[#0f111a] text-gray-300 border-r border-gray-800">
+    
+    <!-- Row 1: Header (Traffic Lights + Project) -->
+    <div 
+      class="flex items-center w-full h-[40px] shrink-0 select-none bg-gray-900 border-b border-gray-800"
+      style="--wails-draggable: drag;"
+    >
+      <!-- Traffic Light Spacer -->
+      <div class="w-[70px] h-full flex-shrink-0"></div>
+
+      <!-- Project Selector -->
+      <n-dropdown 
+        trigger="click" 
+        :options="store.projectOptions" 
+        :render-label="renderProjectLabel"
+        @select="store.handleProjectSelect" 
+        placement="bottom-start"
+        class="bg-gray-800 border border-gray-700"
+      >
+        <div class="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded cursor-pointer no-drag transition-colors" style="--wails-draggable: no-drag">
+          <span class="text-[13px] font-semibold text-gray-200 truncate max-w-[140px]">{{ folderName }}</span>
+          <n-icon :component="ChevronDownOutline" size="10" class="opacity-50" />
+        </div>
+      </n-dropdown>
+
+      <div class="flex-1"></div>
+    </div>
+
     <div class="flex flex-1 overflow-hidden">
       <!-- Activity Bar (Far Left) -->
       <div class="activity-bar w-11 flex flex-col items-center py-4 bg-gray-900 border-r border-gray-800 z-10 shrink-0">
@@ -381,212 +360,220 @@ const handleSyncToolbar = async () => {
         
         <!-- View: Collections (File Tree) -->
         <div v-if="activeView === 'collections'" class="flex flex-col h-full w-full">
-          
-          <!-- Secondary Toolbar -->
-          <div class="flex items-center px-2 py-1 bg-gray-900 border-b border-gray-800 shrink-0 gap-1 h-8">
-            <!-- Environment Selector -->
-            <n-dropdown 
-              trigger="click" 
-              :options="envSelectorOptions" 
-              @select="handleEnvSelect" 
-              placement="bottom-start"
-              class="bg-gray-800 border border-gray-700"
-            >
-              <div 
-                class="flex items-center gap-1.5 px-1.5 py-0.5 rounded cursor-pointer hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Select Environment"
-              >
-                <n-icon :component="EyeOutline" size="14" />
-                <span class="text-[11px] font-mono font-medium max-w-[80px] truncate">
-                  {{ envStore.activeEnvName || 'No Env' }}
-                </span>
-              </div>
+
+            <!-- Row 2: Search & Create -->
+            <div class="flex items-center px-2 gap-2 h-[36px] shrink-0 pt-1">
+            <n-input
+                v-model:value="store.searchKeyword"
+                round
+                size="small"
+                placeholder="Search"
+                class="flex-1 bg-gray-800/50"
+                :bordered="false"
+                clearable
+                >
+                <template #prefix>
+                    <n-icon :component="SearchOutline" class="opacity-50" />
+                </template>
+                </n-input>
+                
+                <n-button 
+                circle 
+                size="small" 
+                @click="handleNewRequest" 
+                title="New Request" 
+                class="bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white"
+                >
+                <template #icon><n-icon :component="AddOutline" size="18" /></template>
+                </n-button>
+            </div>
+
+            <!-- Row 3: Toolbar -->
+            <div class="flex items-center justify-end px-2 gap-1 h-[32px] shrink-0 border-b border-gray-800">
+            <!-- Sync Swagger -->
+            <n-tooltip trigger="hover">
+                <template #trigger>
+                <n-button quaternary size="tiny" @click="handleSyncToolbar" :disabled="isSyncing" class="text-gray-500 hover:text-blue-400">
+                    <template #icon><n-icon :component="SyncOutline" :class="{ 'animate-spin': isSyncing }" /></template>
+                </n-button>
+                </template>
+                Sync Swagger
+            </n-tooltip>
+
+            <!-- Toggle Deleted -->
+            <n-tooltip trigger="hover">
+                <template #trigger>
+                <n-button quaternary size="tiny" @click="toggleShowDeleted" :class="store.showDeleted ? 'text-blue-400' : 'text-gray-500'">
+                    <template #icon><n-icon :component="store.showDeleted ? EyeOutline : EyeOffOutline" /></template>
+                </n-button>
+                </template>
+                {{ store.showDeleted ? 'Hide Deleted' : 'Show Deleted' }}
+            </n-tooltip>
+
+            <!-- Env Switcher -->
+            <n-dropdown trigger="click" :options="envSelectorOptions" @select="handleEnvSelect">
+                <n-button quaternary size="tiny" class="text-gray-500 hover:text-green-400" title="Switch Environment">
+                    <template #icon><n-icon :component="DesktopOutline" /></template>
+                </n-button>
             </n-dropdown>
 
             <div class="w-px h-3 bg-gray-700 mx-1"></div>
 
-            <!-- Tree Actions -->
-            <n-button 
-              text 
-              size="tiny" 
-              @click="store.expandAll()" 
-              title="Expand All" 
-              class="text-gray-500 hover:text-gray-300 p-0.5"
-            >
-              <template #icon><n-icon :component="ChevronDown" size="14" /></template>
-            </n-button>
-            
-            <n-button 
-              text 
-              size="tiny" 
-              @click="store.collapseAll()" 
-              title="Collapse All" 
-              class="text-gray-500 hover:text-gray-300 p-0.5"
-            >
-              <template #icon><n-icon :component="ChevronUpOutline" size="14" /></template>
-            </n-button>
+            <!-- Expand/Collapse -->
+                <n-button quaternary size="tiny" @click="store.expandAll()" title="Expand All" class="text-gray-500 hover:text-gray-300">
+                <template #icon><n-icon :component="ChevronDown" /></template>
+                </n-button>
+                
+                <n-button quaternary size="tiny" @click="store.collapseAll()" title="Collapse All" class="text-gray-500 hover:text-gray-300">
+                <template #icon><n-icon :component="ChevronUpOutline" /></template>
+                </n-button>
+            </div>
 
-            <!-- Spacer -->
-            <div class="flex-1"></div>
+          <!-- Three-Level File Tree -->
+          <div class="flex-1 overflow-hidden mt-0">
+            <n-scrollbar trigger="hover">
+              <div v-if="Object.keys(store.fileTree).length > 0" class="pb-4">
+                <n-collapse :expanded-names="Array.from(store.expandedKeys)" @update:expanded-names="(names) => store.expandedKeys = new Set(names)" arrow-placement="right">
+                  <!-- Level 1: Folder (Tag) -->
+                  <n-collapse-item
+                    v-for="(nodes, folder) in store.fileTree"
+                    :key="folder"
+                    :name="folder"
+                    class="px-2"
+                  >
+                    <template #header>
+                      <div class="text-xs font-bold text-gray-500 flex items-center truncate max-w-full">
+                        <span class="truncate uppercase tracking-tighter">{{ folder }}</span>
+                        <span class="ml-2 opacity-40 text-[9px] shrink-0">[{{ nodes.length }}]</span>
+                      </div>
+                    </template>
 
-            <!-- Quick Sync -->
-            <n-button 
-              text 
-              size="tiny" 
-              @click="handleSyncToolbar" 
-              :disabled="isSyncing"
-              title="Sync Swagger" 
-              class="text-gray-500 hover:text-blue-400 p-0.5"
-            >
+                    <div class="flex flex-col gap-0.5 mt-1">
+                      <!-- Level 2: Interface Node -->
+                      <div v-for="node in nodes" :key="node.mainFile.fileName" class="interface-group">
+                        <!-- Interface Entry Row -->
+                        <div
+                          :id="'file-item-' + node.mainFile.fileName"
+                          class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-all duration-150 rounded border-l-2 file-item relative"
+                          :class="[
+                            store.currentFileName === node.mainFile.fileName
+                              ? 'bg-blue-500/10 text-blue-400 border-blue-500'
+                              : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                          ]"
+                          @click="store.loadFrom(node.mainFile.fileName)"
+                          @contextmenu.prevent="handleContextMenu($event, node.mainFile.fileName)"
+                        >
+                          <!-- Expand Icon - Toggle Only -->
+                          <div 
+                            v-if="node.children.length > 0"
+                            class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors shrink-0 z-10"
+                            @click.stop="toggleNode(node.mainFile.fileName)"
+                          >
+                            <n-icon :component="store.expandedKeys.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
+                          </div>
+                          <div v-else class="w-[18px] shrink-0" />
+    
+                          <!-- Main Label -->
+                          <div class="flex items-center flex-1 min-w-0 pointer-events-none">
+                            <n-badge v-if="node.mainFile.meta.status === 'new'" dot type="success" class="mr-2 shrink-0" />
+                            <div 
+                              v-else 
+                              class="w-9 text-[10px] font-bold shrink-0 text-left"
+                              :class="getMethodClass(node.mainFile.method)"
+                            >
+                              {{ (node.mainFile.method || 'GET').toUpperCase() }}
+                            </div>
+                            <span class="file-name" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
+                              {{ node.mainFile.meta.summary || node.mainFile.meta.key || node.mainFile.fileName.replace('.json', '') }}
+                            </span>
+                          </div>
+                        </div>
+
+                        <!-- Level 3: Test Cases (Children) -->
+                        <div v-if="store.expandedKeys.has(node.mainFile.fileName) && node.children.length > 0" class="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-gray-800 pl-1">
+                          <div
+                            v-for="child in node.children"
+                            :key="child.fileName"
+                            :id="'file-item-' + child.fileName"
+                            class="flex items-center px-2 py-1 cursor-pointer rounded transition-all file-item group/child"
+                            :class="[
+                              store.currentFileName === child.fileName
+                                ? 'bg-blue-500/10 text-blue-300'
+                                : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+                            ]"
+                            @click="store.loadFrom(child.fileName)"
+                            @contextmenu.prevent="handleContextMenu($event, child.fileName)"
+                          >
+                            <div 
+                              class="w-9 text-[10px] font-bold shrink-0 text-left opacity-70"
+                              :class="getMethodClass(child.method)"
+                            >
+                              {{ (child.method || 'GET').toUpperCase() }}
+                            </div>
+                            <span 
+                              class="text-[11px] file-name flex-1"
+                              :class="{ 'line-through text-gray-700': child.meta.status === 'deleted' }"
+                            >
+                              {{ getCaseLabel(child.fileName, node.mainFile.fileName) }}
+                            </span>
+                            <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto shrink-0" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </n-collapse-item>
+                </n-collapse>
+              </div>
+
+              <!-- Empty States -->
+              <div v-else-if="!store.workDir" class="px-4 py-10 opacity-60">
+                <n-empty size="small" description="Open a folder" />
+              </div>
+              <div v-else class="px-4 py-10 opacity-60">
+                <n-empty size="small" description="No results found" />
+              </div>
+            </n-scrollbar>
+          </div>
+        </div>
+
+        <!-- View: History List -->
+        <div v-else-if="activeView === 'history'" class="flex flex-col h-full w-full">
+          <div class="header flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 h-[46px]">
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-400">History</span>
+            <n-button text size="tiny" @click="handleClearHistory" class="text-gray-500 hover:text-red-400">
               <template #icon>
-                <n-icon :component="SyncOutline" size="14" :class="{ 'animate-spin': isSyncing }" />
+                <n-icon :component="TrashOutline" />
               </template>
             </n-button>
           </div>
 
-          <!-- Three-Level File Tree -->
-          <div class="flex-1 overflow-hidden mt-0">
-          <n-scrollbar trigger="hover">
-            <div v-if="Object.keys(store.fileTree).length > 0" class="pb-4">
-              <n-collapse :expanded-names="Array.from(store.expandedKeys)" @update:expanded-names="(names) => store.expandedKeys = new Set(names)" arrow-placement="right">
-                <!-- Level 1: Folder (Tag) -->
-                <n-collapse-item
-                  v-for="(nodes, folder) in store.fileTree"
-                  :key="folder"
-                  :name="folder"
-                  class="px-2"
+          <div class="flex-1 overflow-hidden bg-gray-900/50">
+            <n-scrollbar trigger="hover">
+              <div v-if="historyStore.list.length > 0" class="flex flex-col">
+                <div 
+                  v-for="entry in historyStore.list" 
+                  :key="entry.id"
+                  class="px-3 py-2 border-b border-gray-800 hover:bg-gray-800 cursor-pointer group"
+                  @click="handleLoadHistory(entry)"
                 >
-                  <template #header>
-                    <div class="text-xs font-bold text-gray-500 flex items-center truncate max-w-full">
-                      <span class="truncate uppercase tracking-tighter">{{ folder }}</span>
-                      <span class="ml-2 opacity-40 text-[9px] shrink-0">[{{ nodes.length }}]</span>
-                    </div>
-                  </template>
-
-                  <div class="flex flex-col gap-0.5 mt-1">
-                    <!-- Level 2: Interface Node -->
-                    <div v-for="node in nodes" :key="node.mainFile.fileName" class="interface-group">
-                                          <!-- Interface Entry Row -->
-                                          <div
-                                            :id="'file-item-' + node.mainFile.fileName"
-                                            class="group flex items-center px-2 py-1.5 cursor-pointer text-sm transition-all duration-150 rounded border-l-2 file-item relative"
-                                            :class="[
-                                              store.currentFileName === node.mainFile.fileName
-                                                ? 'bg-blue-500/10 text-blue-400 border-blue-500'
-                                                : 'border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-                                            ]"
-                                            @click="store.loadFrom(node.mainFile.fileName)"
-                                            @contextmenu.prevent="handleContextMenu($event, node.mainFile.fileName)"
-                                          >
-                                            <!-- Expand Icon - Toggle Only -->
-                                            <div 
-                                              v-if="node.children.length > 0"
-                                              class="mr-1 hover:bg-white/10 rounded p-0.5 flex items-center transition-colors shrink-0 z-10"
-                                              @click.stop="toggleNode(node.mainFile.fileName)"
-                                            >
-                                              <n-icon :component="store.expandedKeys.has(node.mainFile.fileName) ? ChevronDownOutline : ChevronForwardOutline" size="12" />
-                                            </div>
-                                            <div v-else class="w-[18px] shrink-0" />
-                      
-                                            <!-- Main Label (Already inside container, so it just displays) -->
-                                            <div class="flex items-center flex-1 min-w-0 pointer-events-none">
-                                              <n-badge v-if="node.mainFile.meta.status === 'new'" dot type="success" class="mr-2 shrink-0" />
-                                              <div 
-                                                v-else 
-                                                class="w-9 text-[10px] font-bold shrink-0 text-left"
-                                                :class="getMethodClass(node.mainFile.method)"
-                                              >
-                                                {{ (node.mainFile.method || 'GET').toUpperCase() }}
-                                              </div>
-                                              <span class="file-name" :class="{ 'line-through text-gray-600': node.mainFile.meta.status === 'deleted' }">
-                                                {{ node.mainFile.meta.summary || node.mainFile.meta.key || node.mainFile.fileName.replace('.json', '') }}
-                                              </span>
-                                            </div>
-                                          </div>
-                      <!-- Level 3: Test Cases (Children) -->
-                      <div v-if="store.expandedKeys.has(node.mainFile.fileName) && node.children.length > 0" class="ml-6 mt-0.5 flex flex-col gap-0.5 border-l border-gray-800 pl-1">
-                                            <div
-                                              v-for="child in node.children"
-                                              :key="child.fileName"
-                                              :id="'file-item-' + child.fileName"
-                                              class="flex items-center px-2 py-1 cursor-pointer rounded transition-all file-item group/child"
-                                              :class="[
-                                                store.currentFileName === child.fileName
-                                                  ? 'bg-blue-500/10 text-blue-300'
-                                                  : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
-                                              ]"
-                                              @click="store.loadFrom(child.fileName)"
-                                              @contextmenu.prevent="handleContextMenu($event, child.fileName)"
-                                            >
-                                              <div 
-                                                class="w-9 text-[10px] font-bold shrink-0 text-left opacity-70"
-                                                :class="getMethodClass(child.method)"
-                                              >
-                                                {{ (child.method || 'GET').toUpperCase() }}
-                                              </div>
-                                              <span 
-                                                class="text-[11px] file-name flex-1"
-                                                :class="{ 'line-through text-gray-700': child.meta.status === 'deleted' }"
-                                              >
-                                                {{ getCaseLabel(child.fileName, node.mainFile.fileName) }}
-                                              </span>
-                                              <n-badge v-if="child.meta.status === 'new'" dot type="success" class="ml-auto shrink-0" />
-                                            </div>                      </div>
-                    </div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <n-tag :type="getMethodColor(entry.request.method)" size="small" class="font-bold text-[10px] px-1 h-5">
+                        {{ entry.request.method }}
+                    </n-tag>
+                    <span class="text-[10px] text-gray-500 ml-auto">{{ formatTime(entry.executed_at) }}</span>
                   </div>
-                </n-collapse-item>
-              </n-collapse>
-            </div>
-
-            <!-- Empty States -->
-            <div v-else-if="!store.workDir" class="px-4 py-10 opacity-60">
-              <n-empty size="small" description="Open a folder" />
-            </div>
-            <div v-else class="px-4 py-10 opacity-60">
-              <n-empty size="small" description="No results found" />
-            </div>
-          </n-scrollbar>
+                  <div class="text-xs text-gray-300 break-all line-clamp-2 font-mono opacity-80 group-hover:opacity-100">
+                    {{ entry.request.url }}
+                  </div>
+                </div>
+              </div>
+              <div v-else class="px-4 py-10 opacity-40">
+                  <n-empty size="small" description="No history yet" />
+              </div>
+            </n-scrollbar>
+          </div>
         </div>
       </div>
-
-      <!-- View: History List -->
-      <div v-else-if="activeView === 'history'" class="flex flex-col h-full w-full">
-         <div class="header flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0 h-[46px]">
-          <span class="text-xs font-bold uppercase tracking-wider text-gray-400">History</span>
-          <n-button text size="tiny" @click="handleClearHistory" class="text-gray-500 hover:text-red-400">
-             <template #icon>
-              <n-icon :component="TrashOutline" />
-            </template>
-          </n-button>
-        </div>
-
-        <div class="flex-1 overflow-hidden bg-gray-900/50">
-           <n-scrollbar trigger="hover">
-             <div v-if="historyStore.list.length > 0" class="flex flex-col">
-               <div 
-                 v-for="entry in historyStore.list" 
-                 :key="entry.id"
-                 class="px-3 py-2 border-b border-gray-800 hover:bg-gray-800 cursor-pointer group"
-                 @click="handleLoadHistory(entry)"
-               >
-                 <div class="flex items-center gap-2 mb-1">
-                   <n-tag :type="getMethodColor(entry.request.method)" size="small" class="font-bold text-[10px] px-1 h-5">
-                      {{ entry.request.method }}
-                   </n-tag>
-                   <span class="text-[10px] text-gray-500 ml-auto">{{ formatTime(entry.executed_at) }}</span>
-                 </div>
-                 <div class="text-xs text-gray-300 break-all line-clamp-2 font-mono opacity-80 group-hover:opacity-100">
-                   {{ entry.request.url }}
-                 </div>
-               </div>
-             </div>
-             <div v-else class="px-4 py-10 opacity-40">
-                <n-empty size="small" description="No history yet" />
-             </div>
-           </n-scrollbar>
-        </div>
-      </div>
-
     </div>
 
     <!-- Sync Modal -->
@@ -636,7 +623,6 @@ const handleSyncToolbar = async () => {
       :on-clickoutside="() => showDropdown = false"
       @select="handleSelect"
     />
-    </div>
   </div>
 </template>
 

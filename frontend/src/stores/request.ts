@@ -20,9 +20,6 @@ import {
     GetRecentProjects,
     RemoveProject
 } from '../../wailsjs/go/main/App';
-import { h } from 'vue';
-import { NIcon, NButton } from 'naive-ui';
-import { CheckmarkOutline, CloseOutline, FolderOpenOutline } from '@vicons/ionicons5';
 import {domain, main, storage} from '../../wailsjs/go/models';
 import { useEnvStore } from './env';
 
@@ -125,36 +122,14 @@ export const useRequestStore = defineStore('request', {
         },
 
         projectOptions(state): any[] {
+            // Return raw data objects. Rendering is handled in the component.
             const options: any[] = state.recentProjects.map(path => {
                 const name = path.split(/[\\/]/).pop() || path;
-                const isCurrent = state.workDir === path;
-                
                 return {
                     key: path,
-                    label: () => h('div', { 
-                        class: 'flex items-center justify-between w-full min-w-[300px] py-1 group/item',
-                    }, [
-                        h('div', { class: 'flex items-center gap-3 flex-1 min-w-0' }, [
-                            isCurrent 
-                                ? h(NIcon, { component: CheckmarkOutline, class: 'text-blue-500 shrink-0', size: '16' }) 
-                                : h('div', { class: 'w-4 shrink-0' }),
-                            h('div', { class: 'flex flex-col min-w-0 flex-1 leading-tight' }, [
-                                h('span', { class: 'text-[13px] font-semibold truncate text-gray-200' }, name),
-                                h('span', { class: 'text-[10px] text-gray-500 truncate mt-0.5 font-mono opacity-80' }, path),
-                            ])
-                        ]),
-                        h('div', { class: 'w-8 flex justify-end shrink-0 ml-2' }, [
-                            h(NButton, { 
-                                text: true, 
-                                size: 'tiny',
-                                class: 'opacity-0 group-hover/item:opacity-100 transition-opacity hover:text-red-400 text-gray-500 p-1',
-                                onClick: (e: MouseEvent) => {
-                                    e.stopPropagation();
-                                    this.removeProject(path);
-                                }
-                            }, { icon: () => h(NIcon, { component: CloseOutline, size: '14' }) })
-                        ])
-                    ])
+                    label: name,
+                    path: path,
+                    isCurrent: state.workDir === path
                 };
             });
 
@@ -164,8 +139,7 @@ export const useRequestStore = defineStore('request', {
 
             options.push({
                 label: 'Open Folder...',
-                key: 'open-folder',
-                icon: () => h(NIcon, null, { default: () => h(FolderOpenOutline) })
+                key: 'open-folder'
             });
 
             return options;

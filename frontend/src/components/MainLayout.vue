@@ -32,10 +32,6 @@ import { useWebSocketStore } from '../stores/websocket'
 
 const message = useMessage()
 const dialog = useDialog()
-// @ts-ignore
-window.$message = message
-// @ts-ignore
-window.$dialog = dialog
 const store = useRequestStore()
 const envStore = useEnvStore()
 const settingsStore = useSettingsStore()
@@ -60,6 +56,12 @@ const handleHorizontalDragEnd = () => {
 }
 
 onMounted(async () => {
+  // Safe assignments
+  // @ts-ignore
+  window.$message = message
+  // @ts-ignore
+  window.$dialog = dialog
+
   // Load global settings
   settingsStore.load()
   
@@ -316,116 +318,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex flex-col bg-gray-900 text-gray-200 overflow-hidden">
-    <!-- IDEA-style Unified Top Bar (macOS HiddenInset Adapter) -->
-    <div 
-      class="flex items-center w-full h-[40px] bg-[#2b2d30] border-b border-black/20 shrink-0 select-none z-50"
-      style="--wails-draggable: drag;"
-    >
-      <!-- [1] Traffic Light Safe Area -->
-      <div class="w-[80px] h-full flex-shrink-0"></div>
-
-      <!-- [2] Project Selector (Immediately after traffic lights) -->
-      <n-dropdown 
-        trigger="click" 
-        :options="store.projectOptions" 
-        @select="store.handleProjectSelect"
-        placement="bottom-start"
-      >
-        <div class="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded cursor-pointer no-drag transition-colors" style="--wails-draggable: no-drag">
-          <n-icon :component="ListOutline" size="16" class="text-blue-400/80" />
-          <span class="text-[13px] font-medium text-gray-300">{{ store.folderName }}</span>
-          <n-icon :component="ChevronDownOutline" size="10" class="opacity-40" />
-        </div>
-      </n-dropdown>
-
-      <div class="w-px h-3 bg-white/10 mx-3"></div>
-
-      <!-- App Identifier -->
-      <div class="flex items-center gap-2 px-1 opacity-40">
-        <span class="font-bold text-[10px] tracking-widest uppercase">CurlFlow</span>
-      </div>
-
-      <!-- Spacer (Central Drag Area) -->
-      <div class="flex-1 h-full"></div>
-
-      <!-- Global Actions -->
-      <div class="flex items-center gap-2 pr-3 no-drag" style="--wails-draggable: no-drag">
-        <n-select
-          :value="envStore.activeEnvName"
-          :options="envStore.envOptions"
-          size="small"
-          placeholder="Select Env"
-          style="width: 140px"
-          @update:value="handleEnvChange"
-          class="idea-select"
-        />
-
-        <div class="w-px h-3 bg-white/10 mx-1"></div>
-        
-        <n-button 
-          v-if="store.currentFileName"
-          text
-          size="small"
-          @click="showMetaModal = true"
-          class="px-2 text-gray-400 hover:text-white"
-          title="Edit Interface Info"
-        >
-          <template #icon><n-icon :component="InformationCircleOutline"/></template>
-        </n-button>
-
-        <n-button
-          text
-          size="small"
-          @click="handleSave"
-          class="px-2 text-gray-400 hover:text-white"
-          title="Save (⌘+S)"
-        >
-          <template #icon><n-icon :component="SaveOutline"/></template>
-          Save
-        </n-button>
-
-        <div class="w-px h-3 bg-white/10 mx-1"></div>
-
-        <!-- Dynamic Action Button -->
-        <n-button
-            v-if="store.request.method !== 'WS'"
-            type="primary"
-            size="small"
-            :loading="store.isLoading"
-            @click="handleRun"
-            class="px-4 font-bold h-7"
-            color="#3574f0"
-        >
-          <template #icon><n-icon :component="PlayOutline"/></template>
-          Run
-        </n-button>
-
-        <n-button
-            v-else
-            :type="isWsConnected ? 'error' : 'primary'"
-            size="small"
-            @click="handleWsAction"
-            class="px-4 font-bold h-7"
-        >
-          <template #icon><n-icon :component="isWsConnected ? CloudOfflineOutline : CloudDoneOutline" /></template>
-          {{ isWsConnected ? 'Disconnect' : 'Connect' }}
-        </n-button>
-
-        <n-button
-            text
-            size="small"
-            @click="showProjectSettingsModal = true"
-            class="px-2 text-gray-400 hover:text-white"
-            title="Project Settings"
-        >
-          <template #icon><n-icon :component="SettingsOutline"/></template>
-        </n-button>
-      </div>
-    </div>
-
-    <!-- Main Content Below Header -->
-    <div class="flex-1 min-h-0 overflow-hidden">
+  <div class="h-screen w-screen bg-gray-900 text-gray-200 overflow-hidden">
+    <!-- Main Content Split Layout -->
+    <div class="h-full w-full overflow-hidden">
       <n-split direction="horizontal" v-model:size="horizontalSplitSize" :min="0.15" :max="0.4" @drag-end="handleHorizontalDragEnd" class="h-full">
         <template #1>
           <div class="split-pane sidebar-container h-full overflow-hidden">
@@ -433,55 +328,104 @@ onUnmounted(() => {
           </div>
         </template>
         <template #2>
-          <div class="split-pane content-container h-full p-4 pt-2 flex flex-col gap-4 min-w-0 overflow-hidden">
+          <div class="split-pane content-container h-full p-4 pt-0 flex flex-col gap-4 min-w-0 overflow-hidden bg-[#1e1e1e]">
+            <!-- Drag Region for Main Content (Optional, enables dragging from empty space above tabs if needed) -->
+            <div class="w-full h-2 shrink-0" style="--wails-draggable: drag"></div>
+
             <!-- Main Content Area -->
             <div class="flex-1 flex flex-col min-h-0 relative" ref="containerRef">
-            <!-- Request Section (Top) -->
-            <div class="flex flex-col gap-2 min-h-0" :style="store.request.method === 'WS' ? { height: '100%' } : { height: `${requestHeightPercent}%` }">
-              <div class="text-xs font-bold font-mono text-gray-500 uppercase tracking-widest flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                  Request
-                  <span v-if="store.meta?.summary" class="ml-2 text-gray-400 normal-case font-sans truncate max-w-[300px]">
-                    {{ store.meta.summary }}
-                  </span>
-                  <n-button 
-                    v-if="store.currentFileName"
-                    text 
-                    size="tiny" 
-                    @click="showMetaModal = true" 
-                    class="ml-1 text-gray-600 hover:text-blue-400"
-                  >
-                    <template #icon>
-                      <n-icon :component="PencilOutline" />
-                    </template>
-                  </n-button>
-                </div>
-              </div>
-              
-              <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
-                <!-- Optional CaseBar -->
-                <CaseBar v-if="store.meta && store.meta.id" class="mb-3" />
-
-                <!-- URL Bar -->
-                <div class="mb-4">
-                  <n-input-group>
-                    <n-select
-                      v-model:value="store.request.method"
-                      :options="methodOptions"
-                      :style="{ width: '120px' }"
-                      @update:value="handleRequestBaseChange"
-                    />
-                    <n-input
-                      v-model:value="store.request.url"
-                      placeholder="https://api.example.com/v1/resource"
-                      @update:value="handleRequestBaseChange"
-                      class="flex-1"
-                    />
-                  </n-input-group>
-                </div>
-
-                <!-- WebSocket Panel (Conditional) -->
+                <!-- Request Section (Top) -->
+                <div class="flex flex-col gap-2 min-h-0" :style="store.request.method === 'WS' ? { height: '100%' } : { height: `${requestHeightPercent}%` }">
+                  
+                  <!-- New Refactored Header -->
+                  <div class="flex flex-row items-center justify-between shrink-0 h-9 px-1">
+                    <!-- Left Side: Title & Primary Actions -->
+                    <div class="flex items-center gap-2">
+                      <div class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></div>
+                      <span class="text-[11px] font-bold font-mono text-gray-500 uppercase tracking-widest select-none">Request</span>
+                      
+                      <div class="w-px h-3 bg-gray-700/50 mx-1"></div>
+            
+                      <!-- Save Button -->
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <n-button quaternary circle size="small" @click="handleSave" class="text-gray-400 hover:text-white">
+                            <template #icon><n-icon :component="SaveOutline" /></template>
+                          </n-button>
+                        </template>
+                        Save Request (Cmd+S)
+                      </n-tooltip>
+            
+                                <!-- Request Info (Meta) -->
+                                <n-tooltip v-if="store.currentFileName" trigger="hover">
+                                  <template #trigger>
+                                    <n-button 
+                                      quaternary 
+                                      circle 
+                                      size="small" 
+                                      @click="showMetaModal = true" 
+                                      class="text-gray-400 hover:text-blue-400"
+                                    >
+                                      <template #icon><n-icon :component="InformationCircleOutline" /></template>
+                                    </n-button>
+                                  </template>
+                                  Request Info & Tags
+                                </n-tooltip>            
+                      <span v-if="store.meta?.summary" class="ml-2 text-xs text-gray-500 truncate max-w-[200px] italic">
+                        {{ store.meta.summary }}
+                      </span>
+                    </div>
+            
+                    <!-- Right Side: Global Settings -->
+                    <div class="flex items-center gap-2">
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <n-button quaternary circle size="small" @click="showProjectSettingsModal = true" class="text-gray-400 hover:text-gray-200">
+                            <template #icon><n-icon :component="SettingsOutline" /></template>
+                          </n-button>
+                        </template>
+                        Project Settings
+                      </n-tooltip>
+                    </div>
+                  </div>
+                  
+                  <div class="flex flex-col flex-1 min-h-0 bg-gray-800 rounded-lg border border-gray-700/50 p-3 overflow-hidden">
+                    <!-- Optional CaseBar -->
+                    <CaseBar v-if="store.meta && store.meta.id" class="mb-3" />
+            
+                    <!-- URL Bar (Optimized) -->
+                    <div class="flex items-center gap-2 mb-4 shrink-0">
+                      <n-select
+                        v-model:value="store.request.method"
+                        :options="methodOptions"
+                        style="width: 100px"
+                        size="medium"
+                        @update:value="handleRequestBaseChange"
+                      />
+                      
+                      <n-input
+                        v-model:value="store.request.url"
+                        placeholder="Enter URL or paste curl"
+                        @update:value="handleRequestBaseChange"
+                        class="flex-1 font-mono"
+                        size="medium"
+                      >
+                        <template #suffix>
+                          <n-button 
+                            text 
+                            class="text-green-500 hover:text-green-400 mr-1" 
+                            @click="handleRun" 
+                            :loading="store.isLoading"
+                            title="Run Request (Cmd+Enter)"
+                          >
+                              <template #icon><n-icon :component="PlayOutline" size="20" /></template>
+                          </n-button>
+                        </template>
+                      </n-input>
+                    </div>
+            
+                    <!-- WebSocket Panel (Conditional) -->
+            
                 <div v-if="store.request.method === 'WS'" class="flex-1 flex flex-col min-h-0 bg-[#1e1e1e] rounded overflow-hidden">
                   <WebSocketPanel 
                     :requestId="store.meta?.id || 'temp-session'" 
