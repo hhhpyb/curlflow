@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import { h, ref, watch, computed } from 'vue'
-import { NDataTable, NTag, NInput, NIcon } from 'naive-ui'
-import { SearchOutline } from '@vicons/ionicons5'
+import { NDataTable, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 
 interface Props {
   jsonContent: string
   docMap?: Record<string, string>
   rootKey?: string
+  keyword?: string // Global search keyword from parent
 }
 
 const props = withDefaults(defineProps<Props>(), {
   jsonContent: '',
   docMap: () => ({}),
-  rootKey: ''
+  rootKey: '',
+  keyword: ''
 })
 
 interface RowData {
@@ -25,7 +26,6 @@ interface RowData {
 }
 
 const tableData = ref<RowData[]>([])
-const searchKeyword = ref('')
 
 const columns: DataTableColumns<RowData> = [
   {
@@ -155,7 +155,7 @@ const filterTree = (nodes: RowData[], keyword: string): RowData[] => {
 }
 
 const filteredTableData = computed(() => {
-  return filterTree(tableData.value, searchKeyword.value)
+  return filterTree(tableData.value, props.keyword)
 })
 
 watch(
@@ -179,19 +179,6 @@ watch(
 
 <template>
   <div class="flex flex-col">
-    <div class="mb-2">
-      <n-input
-        v-model:value="searchKeyword"
-        placeholder="Search field or description..."
-        clearable
-        size="small"
-      >
-        <template #suffix>
-          <n-icon :component="SearchOutline" />
-        </template>
-      </n-input>
-    </div>
-    <!-- Allow table to expand naturally, no internal scroll -->
     <n-data-table
       :columns="columns"
       :data="filteredTableData"
