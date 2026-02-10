@@ -11,7 +11,7 @@ import Sidebar from './Sidebar.vue'
 import ResponsePanel from './ResponsePanel.vue'
 import SettingsModal from './SettingsModal.vue'
 import RequestMetaModal from './RequestMetaModal.vue'
-import BodyDocsViewer from './BodyDocsViewer.vue'
+import DocPreview from './DocPreview.vue'
 import WebSocketPanel from './WebSocketPanel.vue'
 import AuthEditor from './AuthEditor.vue'
 import ProjectSettingsModal from './ProjectSettingsModal.vue'
@@ -521,11 +521,11 @@ onUnmounted(() => {
                       </n-tab-pane>
 
                       <!-- Tab 4: Docs -->
-                      <n-tab-pane v-if="store.request.method !== 'GET'" name="Docs" tab="Docs">
+                      <n-tab-pane name="Docs" tab="Docs">
                         <div class="py-2 h-full overflow-auto">
-                          <BodyDocsViewer
-                              :body-json="store.request.body"
-                              :param-docs="store.meta?.param_docs || {}"
+                          <DocPreview
+                              v-if="store.meta"
+                              :request="{ _meta: store.meta, data: store.request }"
                           />
                         </div>
                       </n-tab-pane>

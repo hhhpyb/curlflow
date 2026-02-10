@@ -83,7 +83,9 @@ export namespace domain {
 	    tags: string[];
 	    swagger_path: string;
 	    last_synced_at: number;
-	    param_docs: Record<string, string>;
+	    param_docs?: Record<string, string>;
+	    response_docs?: Record<string, string>;
+	    response_example: string;
 	    source: string;
 	
 	    static createFrom(source: any = {}) {
@@ -101,6 +103,8 @@ export namespace domain {
 	        this.swagger_path = source["swagger_path"];
 	        this.last_synced_at = source["last_synced_at"];
 	        this.param_docs = source["param_docs"];
+	        this.response_docs = source["response_docs"];
+	        this.response_example = source["response_example"];
 	        this.source = source["source"];
 	    }
 	}

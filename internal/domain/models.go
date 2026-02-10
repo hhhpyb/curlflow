@@ -33,16 +33,18 @@ type RequestFile struct {
 }
 
 type MetaData struct {
-	ID           string            `json:"id"`     // UUID, 唯一标识
-	Key          string            `json:"key"`    // 辅助标识 (如 Method + Path)
-	Status       string            `json:"status"` // active, deleted, new
-	Summary      string            `json:"summary"`
-	Description  string            `json:"description"` // 接口的详细描述
-	Tags         []string          `json:"tags"`
-	SwaggerPath  string            `json:"swagger_path"`
-	LastSyncedAt int64             `json:"last_synced_at"`
-	ParamDocs    map[string]string `json:"param_docs"` // 用于存储每个参数的说明
-	Source       string            `json:"source"`     // 来源: "swagger" (自动同步) 或 "user" (手动创建)
+	ID              string            `json:"id"`     // UUID, 唯一标识
+	Key             string            `json:"key"`    // 辅助标识 (如 Method + Path)
+	Status          string            `json:"status"` // active, deleted, new
+	Summary         string            `json:"summary"`
+	Description     string            `json:"description"` // 接口的详细描述
+	Tags            []string          `json:"tags"`
+	SwaggerPath     string            `json:"swagger_path"`
+	LastSyncedAt    int64             `json:"last_synced_at"`
+	ParamDocs       map[string]string `json:"param_docs,omitempty"`    // 用于存储每个参数的说明
+	ResponseDocs    map[string]string `json:"response_docs,omitempty"` // 存储返回参数说明
+	ResponseExample string            `json:"response_example"`        // 存储返回数据示例
+	Source          string            `json:"source"`                  // 来源: "swagger" (自动同步) 或 "user" (手动创建)
 }
 
 // HttpResponse represents the result of an executed HTTP request.

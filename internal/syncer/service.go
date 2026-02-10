@@ -97,6 +97,9 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 				// Generate Body and extract body property docs
 				generatedBody := s.generateBody(op, paramDocs)
 
+				// Generate Response Docs and Example
+				responseDocs, responseExample := s.generateResponse(op)
+
 				if entry, exists := localMap[currentKey]; exists {
 					stats["updated"]++
 					existingFile := entry.File
@@ -110,7 +113,17 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 					existingFile.Meta.Tags = op.Tags
 					existingFile.Meta.Key = currentKey
 					existingFile.Meta.ParamDocs = paramDocs
+					existingFile.Meta.ResponseDocs = responseDocs
+					existingFile.Meta.ResponseExample = responseExample
 					existingFile.Meta.Source = "swagger" // 确保标记为 Swagger 来源
+
+					// Ensure maps are not nil
+					if existingFile.Meta.ParamDocs == nil {
+						existingFile.Meta.ParamDocs = make(map[string]string)
+					}
+					if existingFile.Meta.ResponseDocs == nil {
+						existingFile.Meta.ResponseDocs = make(map[string]string)
+					}
 
 					// Update Data - Headers (Merge)
 					if existingFile.Data.Headers == nil {
@@ -141,16 +154,18 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 
 					newFile := domain.RequestFile{
 						Meta: domain.MetaData{
-							ID:           uuid.New().String(),
-							Key:          currentKey,
-							Status:       "active",
-							Summary:      summary,
-							Description:  op.Description,
-							Tags:         op.Tags,
-							SwaggerPath:  path,
-							LastSyncedAt: now,
-							ParamDocs:    paramDocs,
-							Source:       "swagger",
+							ID:              uuid.New().String(),
+							Key:             currentKey,
+							Status:          "active",
+							Summary:         summary,
+							Description:     op.Description,
+							Tags:            op.Tags,
+							SwaggerPath:     path,
+							LastSyncedAt:    now,
+							ParamDocs:       paramDocs,
+							ResponseDocs:    responseDocs,
+							ResponseExample: responseExample,
+							Source:          "swagger",
 						},
 						Data: domain.HttpRequest{
 							Method:  method,
@@ -158,6 +173,13 @@ func (s *Service) SyncSwagger(ctx context.Context, dir string, swaggerURL string
 							Headers: map[string]string{"Content-Type": "application/json"},
 							Body:    generatedBody,
 						},
+					}
+
+					if newFile.Meta.ParamDocs == nil {
+						newFile.Meta.ParamDocs = make(map[string]string)
+					}
+					if newFile.Meta.ResponseDocs == nil {
+						newFile.Meta.ResponseDocs = make(map[string]string)
 					}
 
 					// Initial Headers
@@ -233,12 +255,64 @@ func (s *Service) buildURLWithQuery(path string, op *openapi3.Operation) string 
 	return finalURL
 }
 
+// generateResponse extracts response documentation and example from the operation.
+func (s *Service) generateResponse(op *openapi3.Operation) (map[string]string, string) {
+	docs := make(map[string]string)
+	example := ""
+
+	if op.Responses == nil {
+		return docs, example
+	}
+
+	// Priority: 200 > 201 > 2xx > default
+	var targetSchema *openapi3.Schema
+	priorities := []string{"200", "201", "default"}
+
+	// Check explicit priorities first
+	for _, code := range priorities {
+		if respRef := op.Responses.Map()[code]; respRef != nil && respRef.Value != nil {
+			if content := respRef.Value.Content["application/json"]; content != nil && content.Schema != nil && content.Schema.Value != nil {
+				targetSchema = content.Schema.Value
+				break
+			}
+		}
+	}
+
+	// If not found, check any 2xx
+	if targetSchema == nil {
+		for code, respRef := range op.Responses.Map() {
+			if strings.HasPrefix(code, "2") && respRef.Value != nil {
+				if content := respRef.Value.Content["application/json"]; content != nil && content.Schema != nil && content.Schema.Value != nil {
+					targetSchema = content.Schema.Value
+					break
+				}
+			}
+		}
+	}
+
+	if targetSchema != nil {
+		// Generate Docs
+		s.collectPropertyDocs("data", targetSchema, docs, 0)
+
+		// Generate Example
+		data := s.schemaToJSON("", targetSchema, 0)
+		if data != nil {
+			bytes, err := json.MarshalIndent(data, "", "  ")
+			if err == nil {
+				example = string(bytes)
+			}
+		}
+	}
+
+	return docs, example
+}
+
 // generateBody parses request body schema and returns a JSON string.
 func (s *Service) generateBody(op *openapi3.Operation, paramDocs map[string]string) string {
 	if op.RequestBody == nil || op.RequestBody.Value == nil {
 		return ""
 	}
-	content := op.RequestBody.Value.Content.Get("application/json")
+	content := op.RequestBody.Value.Content["application/json"]
 	if content == nil || content.Schema == nil || content.Schema.Value == nil {
 		return ""
 	}
