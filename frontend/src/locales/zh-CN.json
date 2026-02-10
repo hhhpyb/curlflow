@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "CurlFlow"
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "search": "搜索",
+    "settings": "设置",
+    "language": "语言"
+  },
+  "request": {
+    "send": "发送",
+    "method": "方法",
+    "url": "URL"
+  }
+}

@@ -9,7 +9,9 @@ import { Add as AddIcon, Trash as TrashIcon, SettingsOutline, ShieldCheckmarkOut
 import { useRequestStore } from '../stores/request';
 import { useEnvStore } from '../stores/env';
 import { useSettingsStore } from '../stores/settings';
+import { useAppStore } from '../stores/app';
 import AuthEditor from './AuthEditor.vue';
+import { useI18n } from 'vue-i18n';
 
 const props = defineProps<{
   show: boolean;
@@ -19,9 +21,11 @@ const emit = defineEmits<{
   (e: 'update:show', value: boolean): void;
 }>();
 
+const { t } = useI18n();
 const store = useRequestStore();
 const envStore = useEnvStore();
 const settingsStore = useSettingsStore();
+const appStore = useAppStore();
 const message = useMessage();
 const dialog = useDialog();
 
@@ -195,6 +199,16 @@ const handleFinalSave = async () => {
               :autosize="{ minRows: 2 }"
             />
           </n-form-item>
+          <n-form-item :label="t('common.language')">
+            <n-select
+              :value="appStore.language"
+              :options="[
+                { label: 'English', value: 'en-US' },
+                { label: '简体中文', value: 'zh-CN' }
+              ]"
+              @update:value="appStore.setLanguage"
+            />
+          </n-form-item>
         </n-form>
       </n-tab-pane>
 
@@ -277,8 +291,8 @@ const handleFinalSave = async () => {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <n-button @click="internalShow = false">Cancel</n-button>
-        <n-button type="primary" @click="handleFinalSave">Save All Settings</n-button>
+        <n-button @click="internalShow = false">{{ t('common.cancel') }}</n-button>
+        <n-button type="primary" @click="handleFinalSave">{{ t('common.save') }}</n-button>
       </div>
     </template>
   </n-modal>

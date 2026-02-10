@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import { darkTheme } from 'naive-ui'
+import { onMounted, onUnmounted, computed } from 'vue'
+import { darkTheme, zhCN, dateZhCN, enUS, dateEnUS } from 'naive-ui'
 import MainLayout from './components/MainLayout.vue'
 import { useRequestStore } from './stores/request'
+import { useAppStore } from './stores/app'
 
 const store = useRequestStore()
+const appStore = useAppStore()
+
+const naiveLocale = computed(() => {
+  return appStore.language === 'zh-CN' ? zhCN : enUS
+})
+
+const naiveDateLocale = computed(() => {
+  return appStore.language === 'zh-CN' ? dateZhCN : dateEnUS
+})
 
 const handleGlobalShortcuts = async (e: KeyboardEvent) => {
   const isCmdOrCtrl = e.metaKey || e.ctrlKey
@@ -97,7 +107,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <n-config-provider :theme="darkTheme">
+  <n-config-provider 
+    :theme="darkTheme" 
+    :locale="naiveLocale" 
+    :date-locale="naiveDateLocale"
+  >
     <n-global-style/>
     <n-message-provider>
       <n-dialog-provider>

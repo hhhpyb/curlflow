@@ -17,7 +17,9 @@ import {
   SyncOutline, ChevronUpOutline, ChevronDown, DesktopOutline
 } from '@vicons/ionicons5';
 import { useEnvStore } from '../stores/env';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const store = useRequestStore();
 const envStore = useEnvStore();
 const historyStore = useHistoryStore();
@@ -378,7 +380,7 @@ const renderProjectLabel = (option: any) => {
                 v-model:value="store.searchKeyword"
                 round
                 size="small"
-                placeholder="Search"
+                :placeholder="t('common.search')"
                 class="flex-1 bg-gray-800/50"
                 :bordered="false"
                 clearable

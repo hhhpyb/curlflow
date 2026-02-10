@@ -19,7 +19,9 @@ import {useRequestStore} from '../stores/request'
 import {useEnvStore} from '../stores/env'
 import {useSettingsStore} from '../stores/settings'
 import {useWebSocketStore} from '../stores/websocket'
+import {useI18n} from 'vue-i18n'
 
+const { t } = useI18n()
 const message = useMessage()
 const dialog = useDialog()
 const store = useRequestStore()
@@ -371,7 +373,7 @@ onUnmounted(() => {
                           </template>
                         </n-button>
                       </template>
-                      Save Request (Cmd+S)
+                      {{ t('common.save') }} (Cmd+S)
                     </n-tooltip>
                   </div>
 
@@ -419,7 +421,7 @@ onUnmounted(() => {
                             class="text-green-500 hover:text-green-400 mr-1"
                             @click="handleRun"
                             :loading="store.isLoading"
-                            title="Run Request (Cmd+Enter)"
+                            :title="t('request.send') + ' (Cmd+Enter)'"
                         >
                           <template #icon>
                             <n-icon :component="PlayOutline" size="20"/>
