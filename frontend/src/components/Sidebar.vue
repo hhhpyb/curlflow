@@ -228,10 +228,11 @@ const getMethodClass = (method: string) => {
 // Secondary Toolbar Logic
 // ==========================================
 const envSelectorOptions = computed(() => {
-  return envStore.envList.map(name => ({
+  const options = envStore.envList.map(name => ({
     label: name,
     key: name
   }));
+  return [{ label: 'No Environment', key: '' }, ...options];
 });
 
 const handleEnvSelect = (key: string) => {
@@ -259,6 +260,16 @@ const handleSyncToolbar = async () => {
   } finally {
     isSyncing.value = false;
   }
+};
+
+const renderEnvLabel = (option: DropdownOption) => {
+  const isCurrent = envStore.activeEnvName === option.key;
+  return h('div', { class: 'flex items-center gap-2 py-0.5 min-w-[120px]' }, [
+    isCurrent 
+      ? h(NIcon, { component: CheckmarkOutline, class: 'text-green-500 shrink-0', size: '14' }) 
+      : h('div', { class: 'w-[14px] shrink-0' }),
+    h('span', { class: isCurrent ? 'text-green-400 font-medium' : 'text-gray-300' }, option.label as string)
+  ]);
 };
 
 // ==========================================
@@ -411,7 +422,7 @@ const renderProjectLabel = (option: any) => {
             </n-tooltip>
 
             <!-- Env Switcher -->
-            <n-dropdown trigger="click" :options="envSelectorOptions" @select="handleEnvSelect">
+            <n-dropdown trigger="click" :options="envSelectorOptions" :render-label="renderEnvLabel" @select="handleEnvSelect">
                 <n-button quaternary size="tiny" class="text-gray-500 hover:text-green-400" title="Switch Environment">
                     <template #icon><n-icon :component="DesktopOutline" /></template>
                 </n-button>
