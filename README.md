@@ -94,9 +94,8 @@ The output binary will be located in `build/bin/`.
 
 ## 📸 Screenshots
 
-| Request Editor | Response View |
-|:---:|:---:|
-| ![Request](TODO: link to request screenshot) | ![Response](TODO: link to response screenshot) |
+<img width="1461" height="944" alt="image" src="https://github.com/user-attachments/assets/8f6296fc-4bbc-426e-80bf-35211a2872fe" />
+
 
 ## 🤝 Contributing
 
